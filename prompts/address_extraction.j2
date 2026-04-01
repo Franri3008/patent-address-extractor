@@ -1,0 +1,28 @@
+You are extracting structured address information from OCR text of a WIPO PCT patent.
+
+The patent uses standard WIPO section numbering (sections are always in increasing order):
+  - (71) = Applicant(s)  — company or individual + address
+  - (72) = Inventor(s)   — format: "LASTNAME, Firstname; street, city, region (CC)."
+  - (74) = Agent / Law firm — name + address
+
+Important rules:
+  1. Extract addresses EXACTLY as they appear in the text. Do NOT translate, infer, normalise, or reformat.
+  2. The text may be in ANY language. Preserve the original language of addresses entirely.
+  3. If an address is not found for an entity, set "address" to null.
+  4. Multiple inventors / applicants are each a separate object in their list.
+  5. Return ONLY valid JSON — no explanation, no markdown fences, no preamble.
+  6. If the (72) section is absent or the text clearly does not contain inventor data, set "found" to false.
+
+OCR TEXT (may span multiple pages, from a two-column layout):
+---
+{{ ocr_text }}
+---
+
+Return this exact JSON structure:
+{
+  "inventors":  [{"name": "...", "address": "..."}],
+  "applicants": [{"name": "...", "address": "..."}],
+  "agents":     [{"name": "...", "address": "..."}],
+  "sections_detected": ["(71)", "(72)", "(74)"],
+  "found": true
+}

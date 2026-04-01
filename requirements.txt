@@ -1,0 +1,28 @@
+google-cloud-bigquery>=3.11
+google-auth>=2.20
+
+pandas>=2.0
+tqdm>=4.65
+
+aiohttp>=3.9
+pypdf>=4.0
+pdf2image>=1.17
+Pillow>=10.0
+
+jinja2>=3.1
+
+# OCR — dots.ocr-1.5
+# Install via ModelScope:
+#   pip install modelscope
+# Or follow the GitHub instructions at:
+#   https://github.com/rednote-hilab/dots.ocr
+modelscope>=1.9
+torch>=2.0
+torchvision>=0.15
+transformers>=4.40
+
+# LLM providers (install only what you use)
+ollama>=0.2
+openai>=1.30
+anthropic>=0.25
+google-generativeai>=0.5

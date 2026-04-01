@@ -1,0 +1,45 @@
+{
+  "_comment": "Copy this file to config.json and fill in your values.",
+  "run_mode": "batch",
+  "individual": {
+    "patent_id": "WO2025086418",
+    "keep_temp_files": true,
+    "save_thumbnails": true
+  },
+  "batch": {
+    "year": 2025,
+    "month": 1,
+    "limit": null
+  },
+  "bigquery": {
+    "project_id": "your-gcp-project",
+    "use_adc": true,
+    "credentials_path": null
+  },
+  "pdf": {
+    "dpi": 150,
+    "max_pages": 3,
+    "thumbnail_dpi": 72
+  },
+  "ocr": {
+    "model": "dots_ocr",
+    "device": "auto"
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "gemma3:27b",
+    "api_key_env": null,
+    "temperature": 0.1,
+    "max_retries": 2
+  },
+  "workers": {
+    "pdf_concurrency": 8,
+    "ocr_workers": 1,
+    "llm_concurrency": 1,
+    "queue_max_size": 32
+  },
+  "output": {
+    "dir": "output/",
+    "filename_template": "patents_{yyyy}_{mm}"
+  }
+}

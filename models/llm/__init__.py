@@ -1,0 +1,22 @@
+from __future__ import annotations
+from models.llm.base import LLMModel
+
+
+def get_llm_model(config: dict) -> LLMModel:
+    """Return an initialised LLM model based on config['llm']['provider']."""
+    provider = config["llm"]["provider"];
+
+    if provider == "ollama":
+        from models.llm.ollama import OllamaModel
+        return OllamaModel(config);
+    if provider == "openai":
+        from models.llm.openai_api import OpenAIModel
+        return OpenAIModel(config);
+    if provider == "anthropic":
+        from models.llm.anthropic_api import AnthropicModel
+        return AnthropicModel(config);
+    if provider == "google":
+        from models.llm.google_api import GoogleModel
+        return GoogleModel(config);
+
+    raise ValueError(f"Unknown LLM provider: '{provider}'. Add it to models/llm/__init__.py.");

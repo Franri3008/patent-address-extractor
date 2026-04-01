@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Config (may contain credentials)
+config.json
+credentials.json
+*.json.key
+
+# Output data
+output/
+!output/.gitkeep
+
+# Temp / testing artifacts
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.jsonl.tmp
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# ModelScope / HuggingFace model cache
+.modelscope/
