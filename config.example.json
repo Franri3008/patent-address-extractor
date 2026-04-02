@@ -23,7 +23,10 @@
   },
   "ocr": {
     "model": "dots_ocr",
-    "device": "auto"
+    "device": "auto",
+    "_comment_ocr": "For vLLM-served PaddleOCR-VL, set model to 'paddle_ocr_vllm' and configure:",
+    "vllm_base_url": "http://localhost:8000/v1",
+    "vllm_model": "PaddlePaddle/PaddleOCR-VL"
   },
   "llm": {
     "provider": "ollama",
