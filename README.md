@@ -1,20 +1,19 @@
 # patent-address-extractor
 
-A modular, production-grade pipeline for extracting **inventor and applicant addresses** from WO (PCT) patents. It queries Google BigQuery for patent metadata, downloads patent PDFs, runs OCR, and uses an LLM to extract structured address data — all in a concurrent, resource-allocated async pipeline.
+Pipeline for extracting inventor and applicant addresses from WO (PCT) patents. It i) queries Google BigQuery for patent metadata, ii) downloads patent PDFs, iii) runs OCR, iv) and uses an LLM to extract structured address data.
 
 ## Features
 
-- **Two modes**: `individual` (verbose, for testing) and `batch` (production, ~30k patents/month)
-- **Adaptive page fetching** using WIPO sequential section-number heuristic — fetches only the pages needed
-- **Plug-and-play OCR and LLM models**: add a new model by creating one file
-- **Concurrent pipeline** with configurable worker pools per stage
-- **Dashboard-ready metadata** — per-patent JSONL with timing, token counts, page thumbnails
+- Two modes: `individual` (verbose, for testing) and `batch` (production, BQ has ~30k patents per month so it expects that)
+- A sort of reliable heuristic for page fetching (sometimes addresses are in pages beyond the first one)
+- 'Plug-and-play' OCR and LLM models; add a new model by creating one file
+- Concurrent pipeline with configurable worker pools per stage (this is being tested)
+- Dashboard-ready metadata (dashboard it for the future)
 
 ## Requirements
 
 - Python 3.11+
 - [Google Cloud SDK](https://cloud.google.com/sdk) (`gcloud` CLI) for BigQuery auth
-- [Ollama](https://ollama.com/) for local LLM inference (or an API key for cloud providers)
 - Poppler (for `pdf2image`):
   - Linux: `apt-get install poppler-utils`
   - Mac: `brew install poppler`
@@ -22,47 +21,47 @@ A modular, production-grade pipeline for extracting **inventor and applicant add
 ## Setup
 
 ```bash
-git clone https://github.com/yourname/patent-address-extractor
-cd patent-address-extractor
 pip install -r requirements.txt
 
-# BigQuery authentication (Application Default Credentials)
 gcloud auth application-default login
-
-# Copy and fill in config
 cp config.example.json config.json
 # Edit config.json: set project_id, year/month, OCR model, LLM provider
 ```
 
-## OCR: dots.ocr-1.5
+## OCR: PaddleOCR-VL (default)
 
-Install via ModelScope (first run downloads weights automatically):
+A 0.9B vision-language model from PaddlePaddle. Uses the HuggingFace transformers API — no `paddlepaddle` package required. Weights (~1.9 GB) download automatically on first run.
 
 ```bash
-pip install modelscope torch torchvision transformers
+pip install torch torchvision transformers
 ```
 
-Or follow setup instructions at:
-https://github.com/rednote-hilab/dots.ocr
+Set in `config.json`:
+```json
+"ocr": { "model": "paddle_ocr", "device": "auto" }
+```
 
-> **After installing**: run a quick test to confirm the model loads correctly.
-> If the ModelScope pipeline interface differs from expected, update `_run_inference()`
-> in `models/ocr/dots_ocr.py` accordingly.
+Device selection: `"auto"` picks CUDA → MPS (Apple Silicon) → CPU.
+
+> **Apple Silicon (MPS) note:** The model runs with `attn_implementation="eager"` on MPS to avoid an SDPA kernel crash. Expect ~75s/page. For production throughput, a Linux machine with CUDA is recommended.
 
 ## LLM Setup
 
-**Local (Ollama — recommended):**
+Local: LM Studio or Ollama (OpenAI-compatible endpoint)
 ```bash
-# Install Ollama: https://ollama.com/
+# LM Studio: start server, then set in config.json:
+# "provider": "openai", "model": "gemma-3-4b-it", "base_url": "http://127.0.0.1:1234/v1"
+
+# Ollama:
 ollama pull gemma3:27b
-# Set in config.json: "provider": "ollama", "model": "gemma3:27b"
+# "provider": "ollama", "model": "gemma3:27b"
 ```
 
-**API providers:**
+API providers:
 ```bash
 # OpenAI
 export OPENAI_API_KEY=sk-...
-# Set in config.json: "provider": "openai", "model": "gpt-4o-mini"
+# "provider": "openai", "model": "gpt-4o-mini"
 
 # Anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -74,35 +73,34 @@ export GOOGLE_API_KEY=...
 ## Usage
 
 ```bash
-# Individual patent (verbose, keeps files, full metadata)
-python main.py --mode individual --patent WO2025086418
+# Individual patent
+python main.py  # uses config.json run_mode = "individual"
 
-# Full batch (month)
-python main.py --mode batch
-
-# BigQuery only (standalone, useful for testing connectivity)
+# BigQuery only
 python pipeline/bq_fetcher.py --year 2025 --month 1 --limit 10
 python pipeline/bq_fetcher.py --patent WO2025086418
 ```
 
 ## Configuration (`config.json`)
 
-| Key | Description |
-|---|---|
-| `run_mode` | `"individual"` or `"batch"` |
-| `batch.year` / `batch.month` | Target month for batch mode |
-| `batch.limit` | Row limit (null = all) |
-| `bigquery.project_id` | Your GCP project |
-| `pdf.max_pages` | Max pages to extract (default: 3) |
-| `pdf.dpi` | Resolution for OCR images (default: 150) |
-| `ocr.model` | OCR model key (currently: `"dots_ocr"`) |
-| `ocr.device` | `"auto"`, `"cuda"`, `"mps"`, `"cpu"` |
-| `llm.provider` | `"ollama"`, `"openai"`, `"anthropic"`, `"google"` |
-| `llm.model` | Model name (e.g. `"gemma3:27b"`, `"gpt-4o-mini"`) |
-| `workers.pdf_concurrency` | Parallel PDF download workers (I/O-bound, try 8–16) |
-| `workers.ocr_workers` | OCR thread pool size (usually 1 per GPU) |
-| `workers.llm_concurrency` | Parallel LLM callers (1 for local, 4–8 for API) |
-| `workers.queue_max_size` | Bounded queue size between stages (backpressure) |
+| Key                          | Description                                         |
+| ---------------------------- | --------------------------------------------------- |
+| `run_mode`                   | `"individual"` or `"batch"`                         |
+| `individual.patent_id`       | Patent ID for individual mode                       |
+| `batch.year` / `batch.month` | Target month for batch mode                         |
+| `batch.limit`                | Row limit (null = all)                              |
+| `bigquery.project_id`        | Your GCP project                                    |
+| `pdf.max_pages`              | Max pages to extract (default: 3)                   |
+| `pdf.dpi`                    | Resolution for OCR images (default: 150)            |
+| `ocr.model`                  | `"paddle_ocr"` (default)                            |
+| `ocr.device`                 | `"auto"`, `"cuda"`, `"mps"`, `"cpu"`                |
+| `llm.provider`               | `"openai"`, `"ollama"`, `"anthropic"`, `"google"`   |
+| `llm.model`                  | Model name (e.g. `"gemma-3-4b-it"`, `"gpt-4o-mini"`) |
+| `llm.base_url`               | Override API endpoint (for LM Studio / local Ollama) |
+| `workers.pdf_concurrency`    | Parallel PDF download workers (I/O-bound, try 8–16) |
+| `workers.ocr_workers`        | OCR thread pool size (usually 1 per GPU)            |
+| `workers.llm_concurrency`    | Parallel LLM callers (1 for local, 4–8 for API)     |
+| `workers.queue_max_size`     | Bounded queue size between stages (backpressure)    |
 
 ## Output
 

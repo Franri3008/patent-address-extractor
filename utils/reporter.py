@@ -9,6 +9,12 @@ from utils.logger import get_logger
 logger = get_logger("reporter");
 
 
+def _format_duration(value: float | None) -> str:
+    if value is None:
+        return "n/a";
+    return f"{value:.2f}s";
+
+
 def print_individual_report(meta_path: Path) -> None:
     """Print a detailed console report for individual mode."""
     if not meta_path.exists():
@@ -31,10 +37,10 @@ def print_individual_report(meta_path: Path) -> None:
     print(f"  Pages extracted   : {meta.get('pages_extracted')}");
     print(f"  Pages used (OCR)  : {ocr.get('pages_processed')} ({ocr.get('page_reason', '')})");
     print(f"\n  OCR model         : {ocr.get('model')}  [{ocr.get('device')}]");
-    print(f"  OCR time          : {ocr.get('elapsed_s'):.2f}s");
+    print(f"  OCR time          : {_format_duration(ocr.get('elapsed_s'))}");
     print(f"  OCR chars         : {ocr.get('char_count')}");
     print(f"\n  LLM provider      : {llm.get('provider')} / {llm.get('model')}");
-    print(f"  LLM time          : {llm.get('elapsed_s', 0):.2f}s");
+    print(f"  LLM time          : {_format_duration(llm.get('elapsed_s'))}");
     print(f"  Tokens in/out     : {llm.get('tokens_in')} / {llm.get('tokens_out')}");
     cost = llm.get("cost_usd");
     print(f"  Cost              : {'local (free)' if cost is None else f'${cost:.6f}'}");

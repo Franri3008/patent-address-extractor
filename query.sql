@@ -8,22 +8,22 @@ SELECT
   p.filing_date,
   p.grant_date,
   p.priority_date,
-  (SELECT STRING_AGG(ih.name, ' & ')
+  (SELECT STRING_AGG(ih.name, ' | ')
      FROM UNNEST(p.inventor_harmonized) AS ih
   )               AS inventor_names,
-  (SELECT STRING_AGG(ih.country_code, ' & ')
+  (SELECT STRING_AGG(ih.country_code, ' | ')
      FROM UNNEST(p.inventor_harmonized) AS ih
   )               AS inventor_countries,
-  (SELECT STRING_AGG(ah.name, ' & ')
+  (SELECT STRING_AGG(ah.name, ' | ')
      FROM UNNEST(p.assignee_harmonized) AS ah
   )               AS assignee_names,
-  (SELECT STRING_AGG(ah.country_code, ' & ')
+  (SELECT STRING_AGG(ah.country_code, ' | ')
      FROM UNNEST(p.assignee_harmonized) AS ah
   )               AS assignee_countries,
-  (SELECT STRING_AGG(ipc.code, ' & ')
+  (SELECT STRING_AGG(ipc.code, ' | ')
      FROM UNNEST(p.ipc) AS ipc
   )               AS ipc_codes,
-  (SELECT STRING_AGG(cpc.code, ' & ')
+  (SELECT STRING_AGG(cpc.code, ' | ')
      FROM UNNEST(p.cpc) AS cpc
   )               AS cpc_codes
 FROM

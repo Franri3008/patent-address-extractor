@@ -11,15 +11,12 @@ Pillow>=10.0
 
 jinja2>=3.1
 
-# OCR — dots.ocr-1.5
-# Install via ModelScope:
-#   pip install modelscope
-# Or follow the GitHub instructions at:
-#   https://github.com/rednote-hilab/dots.ocr
-modelscope>=1.9
+# OCR — PaddleOCR-VL (PaddlePaddle/PaddleOCR-VL, 0.9B)
+# Uses the HuggingFace transformers API; the paddlepaddle package is NOT required.
+# Weights are downloaded automatically on first run (~1.9 GB).
 torch>=2.0
 torchvision>=0.15
-transformers>=4.40
+transformers>=5.0
 
 # LLM providers (install only what you use)
 ollama>=0.2

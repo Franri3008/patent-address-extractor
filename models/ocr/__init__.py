@@ -10,4 +10,8 @@ def get_ocr_model(config: dict) -> OCRModel:
         from models.ocr.dots_ocr import DotsOCRModel
         return DotsOCRModel(config);
 
+    if key == "paddle_ocr":
+        from models.ocr.paddle_ocr import PaddleOCRModel
+        return PaddleOCRModel(config);
+
     raise ValueError(f"Unknown OCR model: '{key}'. Add it to models/ocr/__init__.py.");

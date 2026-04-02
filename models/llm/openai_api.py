@@ -39,6 +39,11 @@ class OpenAIModel(LLMModel):
         self._temperature = config["llm"].get("temperature", 0.1);
         env_key = config["llm"].get("api_key_env") or "OPENAI_API_KEY";
         self._api_key = os.environ.get(env_key);
+        if not self._api_key:
+            raise ValueError(
+                f"Missing OpenAI API key. Set the '{env_key}' environment variable."
+            );
+        self._base_url = config["llm"].get("base_url");
 
     @property
     def provider_name(self) -> str:
@@ -50,7 +55,7 @@ class OpenAIModel(LLMModel):
 
     def extract_addresses(self, ocr_text: str, prompt_template: str) -> LLMResult:
         from openai import OpenAI
-        client = OpenAI(api_key=self._api_key);
+        client = OpenAI(api_key=self._api_key, base_url=self._base_url);
         prompt = Template(prompt_template).render(ocr_text=ocr_text);
 
         t0 = time.perf_counter();
@@ -63,8 +68,9 @@ class OpenAIModel(LLMModel):
         elapsed = time.perf_counter() - t0;
 
         raw = response.choices[0].message.content or "";
-        tokens_in = response.usage.prompt_tokens;
-        tokens_out = response.usage.completion_tokens;
+        usage = response.usage;
+        tokens_in = usage.prompt_tokens if usage else 0;
+        tokens_out = usage.completion_tokens if usage else 0;
         cost = _estimate_cost(self._model, tokens_in, tokens_out);
 
         return _parse_response(raw, elapsed, tokens_in, tokens_out, cost);

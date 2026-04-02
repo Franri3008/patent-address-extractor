@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""patent-address-extractor — main entry point.
-
-Usage:
-  python main.py                              # uses config.json
-  python main.py --config path/to/cfg.json
-  python main.py --mode individual --patent WO2025086418
-  python main.py --mode batch
-"""
 from __future__ import annotations
 
 import argparse

@@ -101,7 +101,8 @@ async def ocr_coordinator(
                         break;
 
                 except Exception as e:
-                    logger.warning(f"[OCR] {pub_number} p{page_idx}: {e}");
+                    import traceback
+                    logger.warning(f"[OCR] {pub_number} p{page_idx}: {e}\n{traceback.format_exc()}");
                     page_reason = "ocr_error";
                     break;
 

@@ -145,7 +145,10 @@ async def output_stage(
         meta_path = out_dir / f"metadata_{fname}.jsonl";
         csv_path = out_dir / f"{fname}.csv";
 
-    write_header = not csv_path.exists();
+    write_header = is_individual or not csv_path.exists();
+
+    # Individual runs overwrite both files; batch runs append.
+    file_mode = "w" if is_individual else "a";
 
     successes = 0;
     failures = 0;
@@ -154,8 +157,8 @@ async def output_stage(
     pbar = tqdm(total=total, desc="Processing patents", unit="patent");
 
     with (
-        open(csv_path, "a", newline="", encoding="utf-8") as csv_f,
-        open(meta_path, "a", encoding="utf-8") as meta_f,
+        open(csv_path, file_mode, newline="", encoding="utf-8") as csv_f,
+        open(meta_path, file_mode, encoding="utf-8") as meta_f,
     ):
         writer = csv.DictWriter(csv_f, fieldnames=_CSV_COLUMNS);
         if write_header:
