@@ -94,6 +94,8 @@ async def llm_worker(
                             error=str(e),
                         );
 
+        rendered_prompt = Template(prompt_template).render(ocr_text=llm_input);
+
         await result_q.put({
             "row": row,
             "llm_result": llm_result,
@@ -102,4 +104,5 @@ async def llm_worker(
             "pages_used": item["pages_used"],
             "page_reason": item["page_reason"],
             "sections_found": [f"({s})" for s in sorted(item.get("sections", []))],
+            "llm_prompt": rendered_prompt,
         });

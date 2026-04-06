@@ -29,7 +29,7 @@ _CSV_COLUMNS = [
     "assignee_names", "assignee_countries",
     "ipc_codes", "cpc_codes",
     "google_patents_url",
-    "inventors_with_address", "applicants_with_address", "agents_with_address",
+    "inventors_with_address", "applicants_with_address",
     "addresses_found", "pdf_type", "pages_used", "page_reason", "sections_found",
     "ocr_model", "llm_provider", "ocr_elapsed_s", "llm_elapsed_s", "llm_cost_usd",
     "error",
@@ -50,7 +50,6 @@ def _make_csv_row(item: dict, config: dict) -> dict:
     row["google_patents_url"] = _build_url(pub);
     row["inventors_with_address"] = json.dumps(llm.inventors, ensure_ascii=False);
     row["applicants_with_address"] = json.dumps(llm.applicants, ensure_ascii=False);
-    row["agents_with_address"] = json.dumps(llm.agents, ensure_ascii=False);
     row["addresses_found"] = llm.found;
     row["pdf_type"] = pdf_meta.get("pdf_type", "");
     row["pages_used"] = item.get("pages_used", 0);
@@ -111,6 +110,7 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
     if config["run_mode"] == "individual":
         record["thumbnail_paths"] = pdf_meta.get("thumbnail_paths", []);
         record["ocr_full_text"] = item.get("ocr_text", "");
+        record["llm_prompt"] = item.get("llm_prompt", "");
         record["llm_raw_response"] = llm.raw_response;
 
     return record;
