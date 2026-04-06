@@ -14,6 +14,7 @@ from jinja2 import Template
 
 from models.llm.base import LLMModel, LLMResult
 from utils.logger import get_logger
+from utils.wipo import extract_section_text
 
 logger = get_logger("llm_worker");
 
@@ -51,6 +52,18 @@ async def llm_worker(
         ocr_text: str = item["ocr_text"];
         pub_number = str(row.get("publication_number", "unknown"));
 
+        # Trim to only sections (71) and (72) to minimise token count.
+        # Falls back to full OCR text if neither section is detected.
+        sections_text = "\n\n".join(filter(None, [
+            extract_section_text(ocr_text, 71),
+            extract_section_text(ocr_text, 72),
+        ]));
+        llm_input = sections_text or ocr_text;
+
+        logger.debug(
+            f"[LLM] {pub_number}: OCR chars={len(ocr_text)}, trimmed chars={len(llm_input)}"
+        );
+
         llm_result: LLMResult | None = None;
         ocr_error = item["ocr_meta"].get("error");
 
@@ -66,7 +79,7 @@ async def llm_worker(
             for attempt in range(max_retries + 1):
                 try:
                     llm_result = await asyncio.to_thread(
-                        llm_model.extract_addresses, ocr_text, prompt_template
+                        llm_model.extract_addresses, llm_input, prompt_template
                     );
                     llm_result.retries = attempt;
                     break;
