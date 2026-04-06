@@ -23,6 +23,7 @@ class OllamaModel(LLMModel):
     def __init__(self, config: dict) -> None:
         self._model = config["llm"]["model"];
         self._temperature = config["llm"].get("temperature", 0.1);
+        self._think = config["llm"].get("think", False);
 
     @property
     def provider_name(self) -> str:
@@ -42,6 +43,7 @@ class OllamaModel(LLMModel):
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
             options={"temperature": self._temperature},
+            think=self._think,
         );
 
         elapsed = time.perf_counter() - t0;

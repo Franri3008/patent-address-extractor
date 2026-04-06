@@ -19,6 +19,7 @@ class OllamaVisionModel(VisionLLMModel):
     def __init__(self, config: dict) -> None:
         self._model = config["vision_llm"]["model"];
         self._temperature = config["vision_llm"].get("temperature", 0.1);
+        self._think = config["vision_llm"].get("think", False);
 
     @property
     def provider_name(self) -> str:
@@ -46,6 +47,7 @@ class OllamaVisionModel(VisionLLMModel):
                 "images": [image_b64],
             }],
             options={"temperature": self._temperature},
+            think=self._think,
         );
         elapsed = time.perf_counter() - t0;
 
