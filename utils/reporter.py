@@ -34,6 +34,7 @@ def print_individual_report(meta_path: Path) -> None:
     print(f"  Individual Report — {pub}");
     print(sep);
     print(f"  PDF type          : {meta.get('pdf_type')}");
+    print(f"  PDF fetch time    : {_format_duration(meta.get('pdf_elapsed_s'))}");
     print(f"  Pages extracted   : {meta.get('pages_extracted')}");
     print(f"  Pages used (OCR)  : {ocr.get('pages_processed')} ({ocr.get('page_reason', '')})");
     print(f"\n  OCR model         : {ocr.get('model')}  [{ocr.get('device')}]");
@@ -63,7 +64,7 @@ def print_individual_report(meta_path: Path) -> None:
     print(sep + "\n");
 
 
-def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict) -> None:
+def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict, total_elapsed_s: float | None = None) -> None:
     """Read the batch JSONL metadata and write a summary JSON report."""
     if not meta_jsonl_path.exists():
         return;
@@ -86,6 +87,7 @@ def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict) ->
     failed = [r["patent_id"] for r in records if r.get("error")];
     pdf_types = {"vector": 0, "scanned": 0, "unknown": 0};
     pages_list: list[int] = [];
+    pdf_times: list[float] = [];
     ocr_times: list[float] = [];
     llm_times: list[float] = [];
     total_cost = 0.0;
@@ -97,6 +99,9 @@ def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict) ->
         pages = r.get("ocr", {}).get("pages_processed");
         if pages:
             pages_list.append(pages);
+        pt_s = r.get("pdf_elapsed_s");
+        if pt_s:
+            pdf_times.append(pt_s);
         ot = r.get("ocr", {}).get("elapsed_s");
         if ot:
             ocr_times.append(ot);
@@ -111,6 +116,8 @@ def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict) ->
     def _avg(lst: list) -> float:
         return round(sum(lst) / len(lst), 3) if lst else 0.0;
 
+    avg_per_patent = round(total_elapsed_s / total, 3) if total_elapsed_s and total else None;
+
     report = {
         "total_patents": total,
         "addresses_found": found,
@@ -119,6 +126,9 @@ def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict) ->
         "failed_patents": failed,
         "pdf_type_breakdown": pdf_types,
         "avg_pages_per_patent": _avg(pages_list),
+        "total_elapsed_s": round(total_elapsed_s, 3) if total_elapsed_s else None,
+        "avg_time_per_patent_s": avg_per_patent,
+        "avg_pdf_time_s": _avg(pdf_times),
         "avg_ocr_time_s": _avg(ocr_times),
         "avg_llm_time_s": _avg(llm_times),
         "total_cost_usd": round(total_cost, 4) if has_cost else None,
@@ -136,8 +146,13 @@ def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict) ->
     print(f"  Failed            : {len(failed)}");
     print(f"  PDF types         : {pdf_types}");
     print(f"  Avg pages used    : {report['avg_pages_per_patent']}");
-    print(f"  Avg OCR time      : {report['avg_ocr_time_s']}s");
-    print(f"  Avg LLM time      : {report['avg_llm_time_s']}s");
+    print(f"\n  — Timing —");
+    if total_elapsed_s is not None:
+        print(f"  Total time        : {_format_duration(total_elapsed_s)}");
+        print(f"  Avg per patent    : {_format_duration(avg_per_patent)}");
+    print(f"  Avg PDF fetch     : {_format_duration(report['avg_pdf_time_s'])}");
+    print(f"  Avg OCR           : {_format_duration(report['avg_ocr_time_s'])}");
+    print(f"  Avg LLM           : {_format_duration(report['avg_llm_time_s'])}");
     cost_str = f"${report['total_cost_usd']:.4f}" if report["total_cost_usd"] is not None else "local (free)";
-    print(f"  Total LLM cost    : {cost_str}");
+    print(f"\n  Total LLM cost    : {cost_str}");
     print(sep + "\n");

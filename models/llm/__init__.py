@@ -20,3 +20,14 @@ def get_llm_model(config: dict) -> LLMModel:
         return GoogleModel(config);
 
     raise ValueError(f"Unknown LLM provider: '{provider}'. Add it to models/llm/__init__.py.");
+
+
+def get_vision_llm_model(config: dict):
+    """Return an initialised vision LLM model based on config['vision_llm']['provider']."""
+    provider = config["vision_llm"]["provider"];
+
+    if provider == "ollama":
+        from models.llm.ollama_vision import OllamaVisionModel
+        return OllamaVisionModel(config);
+
+    raise ValueError(f"Unknown vision LLM provider: '{provider}'. Add it to models/llm/__init__.py.");

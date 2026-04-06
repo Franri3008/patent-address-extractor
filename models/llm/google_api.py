@@ -36,8 +36,10 @@ class GoogleModel(LLMModel):
     def __init__(self, config: dict) -> None:
         self._model_id = config["llm"]["model"];
         self._temperature = config["llm"].get("temperature", 0.1);
-        env_key = config["llm"].get("api_key_env") or "GOOGLE_API_KEY";
-        api_key = os.environ.get(env_key);
+        api_key = config["llm"].get("api_key");
+        if not api_key:
+            env_key = config["llm"].get("api_key_env") or "GOOGLE_API_KEY";
+            api_key = os.environ.get(env_key);
         import google.generativeai as genai
         genai.configure(api_key=api_key);
         self._genai = genai;

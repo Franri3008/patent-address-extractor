@@ -9,13 +9,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from models.llm import get_llm_model
+from models.llm import get_llm_model, get_vision_llm_model
 from models.ocr import get_ocr_model
 from pipeline.bq_fetcher import fetch_batch, fetch_individual
 from pipeline.llm_worker import llm_worker
 from pipeline.ocr_worker import ocr_coordinator
 from pipeline.output_writer import output_stage
 from pipeline.pdf_worker import pdf_worker
+from pipeline.vision_llm_worker import vision_llm_worker
 from utils.logger import get_logger
 from utils.reporter import print_individual_report, write_batch_report
 
@@ -37,18 +38,11 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
     q_size: int = workers_cfg["queue_max_size"];
     n_pdf: int = workers_cfg["pdf_concurrency"];
     n_llm: int = workers_cfg["llm_concurrency"];
+    pipeline_mode: int = config.get("pipeline_mode", 0);
 
     patent_q: asyncio.Queue = asyncio.Queue(maxsize=q_size);
     image_q: asyncio.Queue = asyncio.Queue(maxsize=q_size);
-    text_q: asyncio.Queue = asyncio.Queue(maxsize=q_size);
     result_q: asyncio.Queue = asyncio.Queue(maxsize=q_size);
-
-    logger.info(f"Loading OCR model: {config['ocr']['model']} ...");
-    ocr_model = get_ocr_model(config);
-    ocr_model.load();
-
-    logger.info(f"Loading LLM: {config['llm']['provider']}/{config['llm']['model']} ...");
-    llm_model = get_llm_model(config);
 
     stats: dict = {};
     total = len(patent_rows);
@@ -59,7 +53,7 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
         for _ in range(n_pdf):
             await patent_q.put(None);
 
-    tasks = [
+    pdf_tasks = [
         asyncio.create_task(_feed()),
         *[
             asyncio.create_task(
@@ -67,21 +61,47 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
             )
             for _ in range(n_pdf)
         ],
-        asyncio.create_task(
-            ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config)
-        ),
-        *[
-            asyncio.create_task(
-                llm_worker(text_q, result_q, llm_model, config)
-            )
-            for _ in range(n_llm)
-        ],
-        asyncio.create_task(
-            output_stage(result_q, config, run_id, total, n_llm, stats)
-        ),
     ];
 
-    await asyncio.gather(*tasks);
+    if pipeline_mode == 1:
+        logger.info(f"pipeline_mode=1: loading vision LLM: {config['vision_llm']['provider']}/{config['vision_llm']['model']} ...");
+        vision_model = get_vision_llm_model(config);
+
+        middle_tasks = [
+            asyncio.create_task(
+                vision_llm_worker(image_q, result_q, vision_model, config)
+            )
+            for _ in range(n_llm)
+        ];
+        n_result_sentinels = n_llm;
+    else:
+        text_q: asyncio.Queue = asyncio.Queue(maxsize=q_size);
+
+        logger.info(f"pipeline_mode=0: loading OCR model: {config['ocr']['model']} ...");
+        ocr_model = get_ocr_model(config);
+        ocr_model.load();
+
+        logger.info(f"Loading LLM: {config['llm']['provider']}/{config['llm']['model']} ...");
+        llm_model = get_llm_model(config);
+
+        middle_tasks = [
+            asyncio.create_task(
+                ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config)
+            ),
+            *[
+                asyncio.create_task(
+                    llm_worker(text_q, result_q, llm_model, config)
+                )
+                for _ in range(n_llm)
+            ],
+        ];
+        n_result_sentinels = n_llm;
+
+    output_task = asyncio.create_task(
+        output_stage(result_q, config, run_id, total, n_result_sentinels, stats)
+    );
+
+    await asyncio.gather(*pdf_tasks, *middle_tasks, output_task);
     return stats;
 
 
@@ -94,12 +114,16 @@ def main() -> None:
                         help="Override config run_mode.");
     parser.add_argument("--patent", metavar="ID", default=None,
                         help="Patent ID for individual mode (overrides config).");
+    parser.add_argument("--pipeline-mode", type=int, choices=[0, 1], default=None,
+                        help="Override config pipeline_mode (0=OCR+LLM, 1=vision LLM).");
     args = parser.parse_args();
 
     config = load_config(args.config);
 
     if args.mode:
         config["run_mode"] = args.mode;
+    if args.pipeline_mode is not None:
+        config["pipeline_mode"] = args.pipeline_mode;
     if args.patent:
         config["run_mode"] = "individual";
         config.setdefault("individual", {})["patent_id"] = args.patent;
@@ -147,7 +171,7 @@ def main() -> None:
     else:
         meta_jsonl = out_dir / f"metadata_{fname}.jsonl";
         report_path = out_dir / f"report_{fname}.json";
-        write_batch_report(meta_jsonl, report_path, stats);
+        write_batch_report(meta_jsonl, report_path, stats, total_elapsed_s=elapsed);
 
 
 if __name__ == "__main__":

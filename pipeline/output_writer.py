@@ -78,6 +78,7 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "pdf_url": pdf_meta.get("pdf_url"),
         "pdf_type": pdf_meta.get("pdf_type"),
+        "pdf_elapsed_s": pdf_meta.get("elapsed_s"),
         "pages_extracted": len(pdf_meta.get("images") or []),
         "ocr": {
             "model": ocr_meta.get("model"),

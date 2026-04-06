@@ -36,8 +36,10 @@ class AnthropicModel(LLMModel):
     def __init__(self, config: dict) -> None:
         self._model = config["llm"]["model"];
         self._temperature = config["llm"].get("temperature", 0.1);
-        env_key = config["llm"].get("api_key_env") or "ANTHROPIC_API_KEY";
-        self._api_key = os.environ.get(env_key);
+        self._api_key = config["llm"].get("api_key");
+        if not self._api_key:
+            env_key = config["llm"].get("api_key_env") or "ANTHROPIC_API_KEY";
+            self._api_key = os.environ.get(env_key);
 
     @property
     def provider_name(self) -> str:
