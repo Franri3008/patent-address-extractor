@@ -11,7 +11,7 @@ from pathlib import Path
 
 from models.llm import get_llm_model, get_vision_llm_model
 from models.ocr import get_ocr_model
-from pipeline.bq_fetcher import fetch_batch, fetch_individual
+from pipeline.bq_fetcher import fetch_batch
 from pipeline.llm_worker import llm_worker
 from pipeline.ocr_worker import ocr_coordinator
 from pipeline.output_writer import output_stage
@@ -148,10 +148,7 @@ def main() -> None:
     if mode == "individual":
         patent_id = config["individual"]["patent_id"];
         logger.info(f"Individual mode — patent: {patent_id}");
-        patent_rows = fetch_individual(config, patent_id);
-        if not patent_rows:
-            logger.error("No patent data found. Exiting.");
-            sys.exit(1);
+        patent_rows = [{"publication_number": patent_id.replace("-", "")}];
     else:
         raw_csv = out_dir / f"raw_{fname}.csv";
         if raw_csv.exists():

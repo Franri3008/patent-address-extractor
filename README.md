@@ -55,12 +55,14 @@ Runs the model on a vLLM server; the pipeline only needs the `openai` client. No
 1. Start the server (on a GPU machine):
    ```bash
    pip install vllm
+   
    vllm serve PaddlePaddle/PaddleOCR-VL \
-       --trust-remote-code \
-       --max-num-batched-tokens 16384 \
-       --no-enable-prefix-caching \
-       --mm-processor-cache-gb 0 \
-       --gpu-memory-utilization 0.4
+   --trust-remote-code \
+   --served-model-name PaddleOCR-VL-0.9B \
+   --max-num-batched-tokens 16384 \
+   --no-enable-prefix-caching \
+   --mm-processor-cache-gb 0 \
+   --gpu-memory-utilization 0.4;
    ```
 
 2. Set in `config.json`:
