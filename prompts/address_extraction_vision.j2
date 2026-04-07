@@ -12,6 +12,8 @@ Important rules:
   4. Multiple inventors / applicants are each a separate object in their list.
   5. Return ONLY valid JSON — no explanation, no markdown fences, no preamble.
   6. If the (72) section is absent or the page clearly does not contain inventor data, set "found" to false and return empty lists.
+  7. Sections may appear out of order (e.g. (72) before (71)). Parse by section number, not by position.
+  8. Sometimes a section cross-references another instead of listing its own data. For example, the inventor section (72) may say just "Inventor; and" or "Inventeur; et" followed immediately by (71), meaning the inventor is the same person(s) listed in (71). In such cases, copy the inventor data from the applicant section. The same can happen in reverse.
 
 This is page {{ page_number }} of the patent. Extract all address information visible on this page.
 
