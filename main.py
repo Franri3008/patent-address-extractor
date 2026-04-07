@@ -69,9 +69,12 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
 
         middle_tasks = [
             asyncio.create_task(
-                vision_llm_worker(image_q, result_q, vision_model, config)
+                vision_llm_worker(
+                    image_q, result_q, vision_model, config,
+                    n_upstream_sentinels=n_pdf,
+                    n_downstream_sentinels=n_llm,
+                )
             )
-            for _ in range(n_llm)
         ];
         n_result_sentinels = n_llm;
     else:

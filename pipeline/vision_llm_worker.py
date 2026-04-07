@@ -62,24 +62,29 @@ async def vision_llm_worker(
     result_q: asyncio.Queue,
     vision_model: VisionLLMModel,
     config: dict,
+    n_upstream_sentinels: int = 1,
+    n_downstream_sentinels: int = 1,
 ) -> None:
     """
     Single vision LLM worker. Consumes from image_q (same format as ocr_worker),
     calls the vision LLM page-by-page, and pushes results directly to result_q.
 
-    One sentinel None from image_q triggers one sentinel to result_q.
+    Waits for n_upstream_sentinels Nones from image_q before emitting
+    n_downstream_sentinels Nones to result_q (mirrors ocr_coordinator pattern).
     """
     prompt_template = _load_prompt();
     max_pages: int = config.get("vision_llm", {}).get("max_pages", _MAX_PAGES);
     max_retries: int = config.get("vision_llm", {}).get("max_retries", 2);
 
-    while True:
+    done_count = 0;
+
+    while done_count < n_upstream_sentinels:
         item = await image_q.get();
         image_q.task_done();
 
         if item is None:
-            await result_q.put(None);
-            return;
+            done_count += 1;
+            continue;
 
         row = item["row"];
         images = item["images"];
@@ -135,6 +140,9 @@ async def vision_llm_worker(
 
         llm_result = _merge_results(page_results);
         await result_q.put(_build_output(row, llm_result, item, pages_used, page_reason));
+
+    for _ in range(n_downstream_sentinels):
+        await result_q.put(None);
 
 
 def _build_output(row: dict, llm_result: LLMResult, pdf_item: dict, pages_used: int, page_reason: str) -> dict:
