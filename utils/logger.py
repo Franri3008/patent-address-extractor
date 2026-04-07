@@ -1,6 +1,16 @@
 import logging
-import sys
 from pathlib import Path
+
+import tqdm
+
+
+class _TqdmStream(logging.StreamHandler):
+    """Log handler that writes via tqdm.write() to avoid disrupting progress bars."""
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            tqdm.tqdm.write(self.format(record));
+        except Exception:
+            self.handleError(record);
 
 
 def get_logger(name: str, log_file: Path | None = None) -> logging.Logger:
@@ -14,7 +24,7 @@ def get_logger(name: str, log_file: Path | None = None) -> logging.Logger:
         datefmt="%H:%M:%S",
     );
 
-    ch = logging.StreamHandler(sys.stdout);
+    ch = _TqdmStream();
     ch.setFormatter(fmt);
     logger.addHandler(ch);
 
