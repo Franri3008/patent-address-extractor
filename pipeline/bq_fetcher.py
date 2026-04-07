@@ -68,15 +68,11 @@ def fetch_batch(config: dict, out_path: Path) -> list[dict]:
     batch = config["batch"];
     yyyy = str(batch["year"]);
     mm = str(batch["month"]).zfill(2);
-    limit = batch.get("limit");
-
     sql_path = Path(__file__).parent.parent / "query.sql";
     sql = sql_path.read_text();
     sql = sql.replace("{yyyy}", yyyy).replace("{mm}", mm);
-    if limit:
-        sql = sql.rstrip().rstrip(";") + f"\nLIMIT {int(limit)}";
 
-    logger.info(f"Querying BigQuery: WO patents {yyyy}-{mm} (limit={limit or 'none'})");
+    logger.info(f"Querying BigQuery: WO patents {yyyy}-{mm} (full batch)");
     client = _build_client(cfg_bq);
     job = client.query(sql);
 

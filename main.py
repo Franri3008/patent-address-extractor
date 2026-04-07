@@ -158,6 +158,11 @@ def main() -> None:
         else:
             patent_rows = fetch_batch(config, raw_csv);
 
+        limit = config.get("batch", {}).get("limit");
+        if limit:
+            patent_rows = patent_rows[:int(limit)];
+            logger.info(f"Limit applied: processing {len(patent_rows)} of available rows.");
+
     logger.info(f"Processing {len(patent_rows)} patents ...");
     stats = asyncio.run(run_pipeline(config, patent_rows, run_id));
 
