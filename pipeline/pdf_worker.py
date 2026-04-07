@@ -128,6 +128,12 @@ async def pdf_worker(
     is_individual = config["run_mode"] == "individual";
     out_dir = Path(config["output"]["dir"]);
 
+    save_thumbs = (
+        (is_individual and individual_cfg.get("save_thumbnails"))
+        or (not is_individual and config.get("batch", {}).get("save_thumbnails"))
+    );
+    thumbs_saved = 0;
+
     async with aiohttp.ClientSession() as session:
         while True:
             row = await patent_q.get();
@@ -167,9 +173,13 @@ async def pdf_worker(
                 );
                 result["images"] = images;
 
-                if is_individual and individual_cfg.get("save_thumbnails"):
-                    ind_out = out_dir / "individual" / pub_number.replace("-", "");
-                    result["thumbnail_paths"] = _save_thumbnails(images, ind_out, pub_number, thumb_dpi);
+                if save_thumbs and thumbs_saved < 999:
+                    if is_individual:
+                        thumb_out = out_dir / "individual" / pub_number.replace("-", "");
+                    else:
+                        thumb_out = out_dir / "images" / pub_number.replace("-", "");
+                    result["thumbnail_paths"] = _save_thumbnails(images, thumb_out, pub_number, thumb_dpi);
+                    thumbs_saved += 1;
 
             except Exception as e:
                 result["error"] = str(e);
