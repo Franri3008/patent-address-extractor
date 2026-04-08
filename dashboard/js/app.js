@@ -33,8 +33,6 @@ async function tick() {
 
 function updateHeader(data) {
   document.getElementById('run-mode').textContent = data.run_mode;
-  document.getElementById('pipeline-mode').textContent =
-    'mode ' + data.pipeline_mode + (data.pipeline_mode === 0 ? ' (OCR+LLM)' : ' (Vision)');
   document.getElementById('run-id').textContent = data.run_id;
   document.getElementById('elapsed').textContent = fmtTime(data.timings.total_elapsed_s);
 }
@@ -43,7 +41,7 @@ function updateHeader(data) {
 
 function updateProgress(data) {
   const total = data.total_patents || 1;
-  const done = (data.stages.output_writer.completed || 0);
+  const done = data.stages.output_writer.completed || 0;
   const pct = Math.min(100, (done / total) * 100);
   document.getElementById('progress-bar').style.width = pct.toFixed(1) + '%';
   document.getElementById('progress-label').textContent = done + ' / ' + total;
@@ -55,7 +53,7 @@ function updateStage(id, stage) {
   const el = document.getElementById('stage-' + id);
   const badge = document.getElementById('badge-' + id);
 
-  el.classList.remove('active', 'done', 'error');
+  el.classList.remove('active', 'done');
   if (stage.status === 'running') el.classList.add('active');
   else if (stage.status === 'done') el.classList.add('done');
 
@@ -70,37 +68,42 @@ function updateMetrics(data) {
   // BQ
   setText('bq-fetched', s.bq_fetch.patents_fetched);
   setText('bq-time', fmtSec(s.bq_fetch.elapsed_s));
+  setText('fab-bq', s.bq_fetch.patents_fetched || '—');
 
   // PDF
   setText('pdf-completed', s.pdf_worker.completed);
-  setText('pdf-queue', s.pdf_worker.queue_size);
   setText('pdf-errors', s.pdf_worker.errors);
-  setText('pdf-last-time', fmtSec(s.pdf_worker.last_elapsed_s));
-  setText('pdf-type', s.pdf_worker.last_pdf_type || '--');
-  setText('pdf-current', truncate(s.pdf_worker.current_patent, 20));
+  setText('pdf-type', s.pdf_worker.last_pdf_type || '—');
+  setText('pdf-current', truncate(s.pdf_worker.current_patent, 22));
+  setText('fab-pdf', s.pdf_worker.queue_size != null ? s.pdf_worker.queue_size : '—');
 
   // OCR
   setText('ocr-completed', s.ocr_worker.completed);
-  setText('ocr-queue', s.ocr_worker.queue_size);
-  setText('ocr-pages', s.ocr_worker.last_pages_used || '--');
-  setText('ocr-reason', s.ocr_worker.last_page_reason || '--');
-  setText('ocr-sections', (s.ocr_worker.last_sections || []).join(' ') || '--');
-  setText('ocr-last-time', fmtSec(s.ocr_worker.last_elapsed_s));
-  setText('ocr-current', truncate(s.ocr_worker.current_patent, 20));
+  setText('ocr-pages', s.ocr_worker.last_pages_used || '—');
+  setText('ocr-sections', (s.ocr_worker.last_sections || []).join(' ') || '—');
+  setText('ocr-current', truncate(s.ocr_worker.current_patent, 22));
+  setText('fab-ocr', s.ocr_worker.queue_size != null ? s.ocr_worker.queue_size : '—');
 
   // LLM
   setText('llm-completed', s.llm_worker.completed);
-  setText('llm-queue', s.llm_worker.queue_size);
   setText('llm-errors', s.llm_worker.errors);
-  setText('llm-last-time', fmtSec(s.llm_worker.last_elapsed_s));
+  setText('llm-current', truncate(s.llm_worker.current_patent, 22));
+  setText('fab-llm', s.llm_worker.queue_size != null ? s.llm_worker.queue_size : '—');
+
   const preview = s.llm_worker.last_result_preview || {};
-  setText('llm-found', preview.found != null ? (preview.found ? 'Yes' : 'No') : '--');
-  setText('llm-current', truncate(s.llm_worker.current_patent, 20));
+  const found = preview.found;
+  const foundStat = document.getElementById('stat-llm-found');
+  if (found != null && foundStat) {
+    setText('llm-found', found ? 'yes' : 'no');
+    foundStat.className = 'stat ' + (found ? 'ok' : 'err');
+  } else {
+    setText('llm-found', '—');
+  }
 
   // Output
-  setText('out-completed', s.output_writer.completed);
   setText('out-successes', s.output_writer.successes);
   setText('out-failures', s.output_writer.failures);
+  setText('fab-out', s.output_writer.successes != null ? s.output_writer.successes : '—');
 }
 
 // ── Timings ─────────────────────────────────────────────
@@ -119,8 +122,7 @@ function updateLLMPanel(llm) {
   const el = document.getElementById('llm-response');
   if (raw) {
     try {
-      const parsed = JSON.parse(raw);
-      el.textContent = JSON.stringify(parsed, null, 2);
+      el.textContent = JSON.stringify(JSON.parse(raw), null, 2);
     } catch {
       el.textContent = raw;
     }
@@ -130,10 +132,8 @@ function updateLLMPanel(llm) {
 // ── Comparison modal ────────────────────────────────────
 
 document.getElementById('btn-compare').addEventListener('click', () => {
-  if (!lastComparison) return;
-  openModal(lastComparison);
+  if (lastComparison) openModal(lastComparison);
 });
-
 document.getElementById('modal-close').addEventListener('click', closeModal);
 document.getElementById('modal-overlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeModal();
@@ -142,9 +142,8 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
 function openModal(comp) {
   document.getElementById('modal-patent-id').textContent = comp.patent_id;
 
-  // Images
   const imgCol = document.getElementById('modal-images');
-  imgCol.innerHTML = '<h3>PDF Pages</h3>';
+  imgCol.innerHTML = '<div class="col-label">PDF Pages</div>';
   (comp.page_images || []).forEach(src => {
     const img = document.createElement('img');
     img.src = src + '?' + Date.now();
@@ -152,7 +151,6 @@ function openModal(comp) {
     imgCol.appendChild(img);
   });
 
-  // JSON result
   document.getElementById('modal-json').textContent =
     JSON.stringify(comp.llm_result, null, 2);
 
@@ -167,11 +165,11 @@ function closeModal() {
 
 function setText(id, val) {
   const el = document.getElementById(id);
-  if (el) el.textContent = val != null ? val : '--';
+  if (el) el.textContent = val != null ? val : '—';
 }
 
 function fmtSec(s) {
-  if (s == null || s === 0) return '--';
+  if (s == null || s === 0) return '—';
   return s.toFixed(2) + 's';
 }
 
@@ -185,7 +183,7 @@ function fmtTime(s) {
 
 function truncate(str, len) {
   if (!str) return '';
-  return str.length > len ? str.slice(0, len) + '...' : str;
+  return str.length > len ? str.slice(0, len) + '…' : str;
 }
 
 // ── Start polling ───────────────────────────────────────

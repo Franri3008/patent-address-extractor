@@ -125,9 +125,23 @@ def main() -> None:
                         help="Patent ID for individual mode (overrides config).");
     parser.add_argument("--pipeline-mode", type=int, choices=[0, 1], default=None,
                         help="Override config pipeline_mode (0=OCR+LLM, 1=vision LLM).");
+    parser.add_argument("--review", action="store_true",
+                        help="Start the review server to build the ground-truth dataset.");
+    parser.add_argument("--test", action="store_true",
+                        help="Run regression tests against test/ground_truth.csv.");
     args = parser.parse_args();
 
     config = load_config(args.config);
+
+    # ── Special modes: review server and test runner ──────────────────────────
+    if args.review:
+        from review_server import start_review_server
+        start_review_server(config);
+        return;
+
+    if args.test:
+        import test as test_module
+        sys.exit(test_module.run_tests(config));
 
     if args.mode:
         config["run_mode"] = args.mode;
