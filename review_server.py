@@ -40,25 +40,55 @@ def _load_reviews() -> dict[str, dict]:
     return reviews
 
 
+def _find_thumbnails(base_id: str) -> list[tuple[str, str]]:
+    if not INDIVIDUAL_DIR.exists():
+        return []
+
+    results: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for d in sorted(INDIVIDUAL_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        if d.name != base_id and not d.name.startswith(base_id):
+            continue
+        for img in sorted(d.glob("page_*_thumb.jpg")):
+            if img.name not in seen:
+                results.append((f"/thumbnails/{d.name}/{img.name}", d.name))
+                seen.add(img.name)
+        # Also check non-thumb pattern (page_1.jpg etc)
+        for img in sorted(d.glob("page_*.jpg")):
+            if "_thumb" in img.name:
+                continue
+            if img.name not in seen:
+                results.append((f"/thumbnails/{d.name}/{img.name}", d.name))
+                seen.add(img.name)
+    return results
+
+
 def _scan_individual() -> list[dict]:
-    """Scan output/individual/*/metadata.json for individual-mode results."""
+    """Scan output/individual/* for processed patent results."""
     patents = []
     if not INDIVIDUAL_DIR.exists():
         return patents
 
+    seen_base_ids: set[str] = set()
+
     for meta_path in sorted(INDIVIDUAL_DIR.glob("*/metadata.json")):
         try:
             with open(meta_path, encoding="utf-8") as f:
-                meta = json.load(f)
+                content = f.read().strip()
+                if not content:
+                    continue
+                meta = json.loads(content)
         except Exception:
             continue
 
         patent_id = meta.get("patent_id", meta_path.parent.name).replace("-", "")
         folder_id = meta_path.parent.name
+        seen_base_ids.add(patent_id)
 
-        thumbs = []
-        for img in sorted(meta_path.parent.glob("page_*.jpg")):
-            thumbs.append(f"/thumbnails/{folder_id}/{img.name}")
+        thumb_info = _find_thumbnails(patent_id)
+        thumbs = [url for url, _ in thumb_info]
 
         llm_raw = meta.get("llm_raw_response") or ""
         llm_result = meta.get("result", {})
@@ -89,6 +119,31 @@ def _scan_individual() -> list[dict]:
             "thumbnail_paths": thumbs,
             "source":        "individual",
             "publication_date": meta.get("publication_date", ""),
+        })
+
+    for d in sorted(INDIVIDUAL_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        if any(d.name == sid or d.name.startswith(sid) for sid in seen_base_ids):
+            continue
+        imgs = sorted(d.glob("page_*_thumb.jpg")) or sorted(d.glob("page_*.jpg"))
+        if not imgs:
+            continue
+        folder_id = d.name
+        thumbs = [f"/thumbnails/{folder_id}/{img.name}" for img in imgs]
+        patents.append({
+            "patent_id":     folder_id,
+            "folder_id":     folder_id,
+            "country_code":  folder_id[:2] if len(folder_id) >= 2 else "WO",
+            "language":      "",
+            "llm_output":    {},
+            "run_id":        "",
+            "llm_provider":  "",
+            "ocr_model":     "",
+            "has_images":    True,
+            "thumbnail_paths": thumbs,
+            "source":        "individual",
+            "publication_date": "",
         })
 
     return patents
