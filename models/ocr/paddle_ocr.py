@@ -21,7 +21,7 @@ logger = get_logger("paddle_ocr")
 
 _MODEL_ID = "PaddlePaddle/PaddleOCR-VL"
 _OCR_PROMPT = "OCR:"
-_MAX_NEW_TOKENS = 4096
+_OCR_PROMPT = "OCR:"
 
 
 def _resolve_device(device_cfg: str) -> str:
@@ -43,6 +43,7 @@ class PaddleOCRModel(OCRModel):
 
     def __init__(self, config: dict) -> None:
         self._device = _resolve_device(config["ocr"].get("device", "auto"))
+        self._max_tokens = config["ocr"].get("max_tokens", 4096);
         self._model = None
         self._processor = None
 
@@ -215,7 +216,7 @@ class PaddleOCRModel(OCRModel):
         with torch.inference_mode():
             output_ids = self._model.generate(
                 **inputs,
-                max_new_tokens=_MAX_NEW_TOKENS,
+                max_new_tokens=self._max_tokens,
                 do_sample=False,
                 use_cache=True,
                 repetition_penalty=1.2,

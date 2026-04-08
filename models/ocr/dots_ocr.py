@@ -33,7 +33,7 @@ from utils.logger import get_logger
 
 logger = get_logger("dots_ocr");
 
-_MAX_NEW_TOKENS = 4096
+
 
 
 def _resolve_device(device_cfg: str) -> str:
@@ -57,6 +57,7 @@ class DotsOCRModel(OCRModel):
 
     def __init__(self, config: dict) -> None:
         self._device = _resolve_device(config["ocr"].get("device", "auto"));
+        self._max_tokens = config["ocr"].get("max_tokens", 4096);
         self._model = None;
         self._processor = None;
 
@@ -172,7 +173,7 @@ class DotsOCRModel(OCRModel):
             past_key_values = None;
             cur_mask = attention_mask;
 
-            for step in range(_MAX_NEW_TOKENS):
+            for step in range(self._max_tokens):
                 if step == 0:
                     outputs = self._model(
                         input_ids=input_ids,

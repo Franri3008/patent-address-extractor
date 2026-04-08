@@ -47,6 +47,7 @@ class PaddleOCRVLLMModel(OCRModel):
 
     def __init__(self, config: dict) -> None:
         ocr_cfg = config["ocr"]
+        self._max_tokens = ocr_cfg.get("max_tokens", 4096);
         self._base_url = ocr_cfg.get("vllm_base_url", _DEFAULT_BASE_URL)
         self._model_name = ocr_cfg.get("vllm_model", _DEFAULT_MODEL)
         self._client = None
@@ -95,6 +96,7 @@ class PaddleOCRVLLMModel(OCRModel):
 
         response = self._client.chat.completions.create(
             model=self._model_name,
+            max_tokens=self._max_tokens,
             messages=[
                 {
                     "role": "user",
