@@ -108,10 +108,11 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
         "error": llm.error,
     };
 
+    record["llm_prompt"] = item.get("llm_prompt", "");
+
     if config["run_mode"] == "individual":
         record["thumbnail_paths"] = pdf_meta.get("thumbnail_paths", []);
         record["ocr_full_text"] = item.get("ocr_text", "");
-        record["llm_prompt"] = item.get("llm_prompt", "");
         record["llm_raw_response"] = llm.raw_response;
 
     return record;

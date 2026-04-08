@@ -7,12 +7,13 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
   <!-- Header -->
-  <header id="header">
+  <header>
     <div class="header-left">
       <h1>Patent Pipeline</h1>
-      <span id="run-mode" class="badge">--</span>
-      <span id="pipeline-mode" class="badge badge-dim">mode --</span>
+      <span id="run-mode" class="pill">--</span>
+      <span id="pipeline-mode" class="pill pill-gray">mode --</span>
     </div>
     <div class="header-right">
       <span id="run-id" class="run-id">--</span>
@@ -20,120 +21,158 @@
     </div>
   </header>
 
-  <!-- Progress bar -->
-  <div class="progress-container">
-    <div class="progress-bar" id="progress-bar"></div>
+  <!-- Progress track -->
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-bar"></div>
+    </div>
     <span class="progress-label" id="progress-label">0 / 0</span>
   </div>
 
-  <!-- Pipeline flow diagram -->
-  <main class="pipeline">
-    <!-- BQ Fetch -->
-    <div class="stage" id="stage-bq_fetch">
-      <div class="stage-icon"><img src="ui/icon-bq.svg" alt="BQ"></div>
-      <div class="stage-name">BigQuery</div>
-      <div class="stage-badge" id="badge-bq_fetch">pending</div>
-      <div class="stage-metrics" id="metrics-bq_fetch">
-        <div class="metric"><span class="label">Fetched</span><span class="value" id="bq-fetched">0</span></div>
-        <div class="metric"><span class="label">Time</span><span class="value" id="bq-time">--</span></div>
+  <!-- Pipeline -->
+  <div class="pipeline-wrap">
+    <!-- Track line drawn in CSS via ::before on .pipeline -->
+    <div class="pipeline">
+
+      <!-- 1. BigQuery -->
+      <div class="stage" id="stage-bq_fetch">
+        <div class="stage-head">
+          <span class="step-num">1</span>
+          <img class="stage-icon" src="ui/icon-bq.svg" alt="">
+          <div>
+            <div class="stage-name">BigQuery</div>
+            <div class="stage-status" id="badge-bq_fetch">pending</div>
+          </div>
+        </div>
+        <div class="stage-body">
+          <div class="metric"><span class="mk">Fetched</span><span class="mv" id="bq-fetched">—</span></div>
+          <div class="metric"><span class="mk">Time</span><span class="mv" id="bq-time">—</span></div>
+        </div>
       </div>
-    </div>
 
-    <div class="arrow"><svg viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" /></svg></div>
+      <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
 
-    <!-- PDF Worker -->
-    <div class="stage" id="stage-pdf_worker">
-      <div class="stage-icon"><img src="ui/icon-pdf.svg" alt="PDF"></div>
-      <div class="stage-name">PDF Download</div>
-      <div class="stage-badge" id="badge-pdf_worker">pending</div>
-      <div class="stage-metrics" id="metrics-pdf_worker">
-        <div class="metric"><span class="label">Done</span><span class="value" id="pdf-completed">0</span></div>
-        <div class="metric"><span class="label">Queue</span><span class="value" id="pdf-queue">0</span></div>
-        <div class="metric"><span class="label">Errors</span><span class="value" id="pdf-errors">0</span></div>
-        <div class="metric"><span class="label">Last</span><span class="value" id="pdf-last-time">--</span></div>
-        <div class="metric"><span class="label">Type</span><span class="value" id="pdf-type">--</span></div>
+      <!-- 2. PDF -->
+      <div class="stage" id="stage-pdf_worker">
+        <div class="stage-head">
+          <span class="step-num">2</span>
+          <img class="stage-icon" src="ui/icon-pdf.svg" alt="">
+          <div>
+            <div class="stage-name">PDF Download</div>
+            <div class="stage-status" id="badge-pdf_worker">pending</div>
+          </div>
+        </div>
+        <div class="stage-body">
+          <div class="metric"><span class="mk">Done</span><span class="mv" id="pdf-completed">—</span></div>
+          <div class="metric"><span class="mk">Queue</span><span class="mv" id="pdf-queue">—</span></div>
+          <div class="metric"><span class="mk">Errors</span><span class="mv err" id="pdf-errors">—</span></div>
+          <div class="metric"><span class="mk">Avg</span><span class="mv" id="pdf-last-time">—</span></div>
+          <div class="metric"><span class="mk">Type</span><span class="mv" id="pdf-type">—</span></div>
+        </div>
+        <div class="stage-current" id="pdf-current"></div>
       </div>
-      <div class="stage-current" id="pdf-current"></div>
-    </div>
 
-    <div class="arrow"><svg viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" /></svg></div>
+      <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
 
-    <!-- OCR Worker -->
-    <div class="stage" id="stage-ocr_worker">
-      <div class="stage-icon"><img src="ui/icon-ocr.svg" alt="OCR"></div>
-      <div class="stage-name">OCR</div>
-      <div class="stage-badge" id="badge-ocr_worker">pending</div>
-      <div class="stage-metrics" id="metrics-ocr_worker">
-        <div class="metric"><span class="label">Done</span><span class="value" id="ocr-completed">0</span></div>
-        <div class="metric"><span class="label">Queue</span><span class="value" id="ocr-queue">0</span></div>
-        <div class="metric"><span class="label">Pages</span><span class="value" id="ocr-pages">--</span></div>
-        <div class="metric"><span class="label">Reason</span><span class="value" id="ocr-reason">--</span></div>
-        <div class="metric"><span class="label">Sections</span><span class="value" id="ocr-sections">--</span></div>
-        <div class="metric"><span class="label">Last</span><span class="value" id="ocr-last-time">--</span></div>
+      <!-- 3. OCR -->
+      <div class="stage" id="stage-ocr_worker">
+        <div class="stage-head">
+          <span class="step-num">3</span>
+          <img class="stage-icon" src="ui/icon-ocr.svg" alt="">
+          <div>
+            <div class="stage-name">OCR</div>
+            <div class="stage-status" id="badge-ocr_worker">pending</div>
+          </div>
+        </div>
+        <div class="stage-body">
+          <div class="metric"><span class="mk">Done</span><span class="mv" id="ocr-completed">—</span></div>
+          <div class="metric"><span class="mk">Queue</span><span class="mv" id="ocr-queue">—</span></div>
+          <div class="metric"><span class="mk">Pages</span><span class="mv" id="ocr-pages">—</span></div>
+          <div class="metric"><span class="mk">Reason</span><span class="mv" id="ocr-reason">—</span></div>
+          <div class="metric"><span class="mk">Sections</span><span class="mv" id="ocr-sections">—</span></div>
+          <div class="metric"><span class="mk">Avg</span><span class="mv" id="ocr-last-time">—</span></div>
+        </div>
+        <div class="stage-current" id="ocr-current"></div>
       </div>
-      <div class="stage-current" id="ocr-current"></div>
-    </div>
 
-    <div class="arrow"><svg viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" /></svg></div>
+      <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
 
-    <!-- LLM Worker -->
-    <div class="stage" id="stage-llm_worker">
-      <div class="stage-icon"><img src="ui/icon-llm.svg" alt="LLM"></div>
-      <div class="stage-name">LLM Extract</div>
-      <div class="stage-badge" id="badge-llm_worker">pending</div>
-      <div class="stage-metrics" id="metrics-llm_worker">
-        <div class="metric"><span class="label">Done</span><span class="value" id="llm-completed">0</span></div>
-        <div class="metric"><span class="label">Queue</span><span class="value" id="llm-queue">0</span></div>
-        <div class="metric"><span class="label">Errors</span><span class="value" id="llm-errors">0</span></div>
-        <div class="metric"><span class="label">Last</span><span class="value" id="llm-last-time">--</span></div>
-        <div class="metric"><span class="label">Found</span><span class="value" id="llm-found">--</span></div>
+      <!-- 4. LLM -->
+      <div class="stage" id="stage-llm_worker">
+        <div class="stage-head">
+          <span class="step-num">4</span>
+          <img class="stage-icon" src="ui/icon-llm.svg" alt="">
+          <div>
+            <div class="stage-name">LLM Extract</div>
+            <div class="stage-status" id="badge-llm_worker">pending</div>
+          </div>
+        </div>
+        <div class="stage-body">
+          <div class="metric"><span class="mk">Done</span><span class="mv" id="llm-completed">—</span></div>
+          <div class="metric"><span class="mk">Queue</span><span class="mv" id="llm-queue">—</span></div>
+          <div class="metric"><span class="mk">Errors</span><span class="mv err" id="llm-errors">—</span></div>
+          <div class="metric"><span class="mk">Avg</span><span class="mv" id="llm-last-time">—</span></div>
+          <div class="metric"><span class="mk">Found?</span><span class="mv" id="llm-found">—</span></div>
+        </div>
+        <div class="stage-current" id="llm-current"></div>
       </div>
-      <div class="stage-current" id="llm-current"></div>
-    </div>
 
-    <div class="arrow"><svg viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" /></svg></div>
+      <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
 
-    <!-- Output Writer -->
-    <div class="stage" id="stage-output_writer">
-      <div class="stage-icon"><img src="ui/icon-output.svg" alt="Out"></div>
-      <div class="stage-name">Output</div>
-      <div class="stage-badge" id="badge-output_writer">pending</div>
-      <div class="stage-metrics" id="metrics-output_writer">
-        <div class="metric"><span class="label">Written</span><span class="value" id="out-completed">0</span></div>
-        <div class="metric success"><span class="label">OK</span><span class="value" id="out-successes">0</span></div>
-        <div class="metric error"><span class="label">Fail</span><span class="value" id="out-failures">0</span></div>
+      <!-- 5. Output -->
+      <div class="stage" id="stage-output_writer">
+        <div class="stage-head">
+          <span class="step-num">5</span>
+          <img class="stage-icon" src="ui/icon-output.svg" alt="">
+          <div>
+            <div class="stage-name">Output</div>
+            <div class="stage-status" id="badge-output_writer">pending</div>
+          </div>
+        </div>
+        <div class="stage-body">
+          <div class="metric"><span class="mk">Written</span><span class="mv" id="out-completed">—</span></div>
+          <div class="metric"><span class="mk">OK</span><span class="mv ok" id="out-successes">—</span></div>
+          <div class="metric"><span class="mk">Fail</span><span class="mv err" id="out-failures">—</span></div>
+        </div>
       </div>
-    </div>
-  </main>
 
-  <!-- Timings bar -->
-  <section class="timings-bar">
-    <div class="timing"><span class="label">Avg PDF</span><span class="value" id="avg-pdf">--</span></div>
-    <div class="timing"><span class="label">Avg OCR</span><span class="value" id="avg-ocr">--</span></div>
-    <div class="timing"><span class="label">Avg LLM</span><span class="value" id="avg-llm">--</span></div>
-    <div class="timing"><span class="label">Total</span><span class="value" id="total-time">--</span></div>
-  </section>
+    </div><!-- /.pipeline -->
+  </div><!-- /.pipeline-wrap -->
+
+  <!-- Timings row -->
+  <div class="timings-row">
+    <div class="timing-item"><span class="tk">Avg PDF</span><span class="tv" id="avg-pdf">—</span></div>
+    <div class="timing-sep"></div>
+    <div class="timing-item"><span class="tk">Avg OCR</span><span class="tv" id="avg-ocr">—</span></div>
+    <div class="timing-sep"></div>
+    <div class="timing-item"><span class="tk">Avg LLM</span><span class="tv" id="avg-llm">—</span></div>
+    <div class="timing-sep"></div>
+    <div class="timing-item total"><span class="tk">Total elapsed</span><span class="tv" id="total-time">—</span></div>
+  </div>
 
   <!-- LLM Response panel -->
-  <section class="llm-panel">
+  <div class="llm-panel">
     <div class="panel-header">
-      <h2>Latest LLM Response</h2>
-      <button id="btn-compare" class="btn-compare" disabled>Compare</button>
+      <span class="panel-title">Latest LLM Response</span>
+      <button id="btn-compare" class="btn-compare" disabled>View Patent Pages</button>
     </div>
-    <pre id="llm-response" class="llm-response">Waiting for data...</pre>
-  </section>
+    <pre id="llm-response">Waiting for data…</pre>
+  </div>
 
   <!-- Comparison Modal -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
-      <button class="modal-close" id="modal-close">&times;</button>
-      <h2 class="modal-title">Comparison — <span id="modal-patent-id">--</span></h2>
+      <div class="modal-header">
+        <span class="modal-title">Patent <strong id="modal-patent-id">—</strong></span>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
       <div class="modal-body">
         <div class="modal-col" id="modal-images">
-          <h3>PDF Pages</h3>
+          <div class="col-label">PDF Pages</div>
         </div>
-        <div class="modal-col" id="modal-result">
-          <h3>Extracted Addresses</h3>
+        <div class="modal-divider"></div>
+        <div class="modal-col">
+          <div class="col-label">Extracted Addresses</div>
           <pre id="modal-json"></pre>
         </div>
       </div>
