@@ -14,6 +14,14 @@ Important rules:
   6. If the (72) section is absent or the text clearly does not contain inventor data, set "found" to false.
   7. Sections may appear out of order (e.g. (72) before (71)). Parse by section number, not by position.
   8. Sometimes a section cross-references another instead of listing its own data. For example, the inventor section (72) may say just "Inventor; and" or "Inventeur; et" followed immediately by (71), meaning the inventor is the same person(s) listed in (71). In such cases, copy the inventor data from the applicant section. The same can happen in reverse.
+  9. A single section (e.g. (71)) may contain multiple entities separated by a period, semicolon, or new line. Each entity is a separate object — do not merge them into one.
+{% if known_applicants or known_inventors %}
+
+Known entities from the patent registry (use these to ensure all are included in the output — find their addresses in the text):
+{% if known_applicants %}  Applicants: {{ known_applicants | join(" | ") }}{% endif %}
+{% if known_inventors %}  Inventors: {{ known_inventors | join(" | ") }}{% endif %}
+  If an entity from this list appears in the text (even with slight OCR misspellings), include it. Set "address" to null if no address is found for it.
+{% endif %}
 
 OCR TEXT (may span multiple pages, from a two-column layout):
 ---

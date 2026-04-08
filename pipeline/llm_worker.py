@@ -15,7 +15,7 @@ from jinja2 import Template
 from models.llm.base import LLMModel, LLMResult
 from utils.logger import get_logger
 from utils.status_tracker import StatusTracker
-from utils.wipo import extract_section_text
+from utils.wipo import extract_section_text, parse_known_names
 
 logger = get_logger("llm_worker");
 
@@ -75,6 +75,8 @@ async def llm_worker(
             # context (covers garbled column reads, truncated output, etc.).
             llm_input = ocr_text;
 
+        template_vars = parse_known_names(row);
+
         logger.debug(
             f"[LLM] {pub_number}: OCR chars={len(ocr_text)}, trimmed chars={len(llm_input)}"
         );
@@ -94,7 +96,7 @@ async def llm_worker(
             for attempt in range(max_retries + 1):
                 try:
                     llm_result = await asyncio.to_thread(
-                        llm_model.extract_addresses, llm_input, prompt_template
+                        llm_model.extract_addresses, llm_input, prompt_template, template_vars
                     );
                     llm_result.retries = attempt;
                     break;
@@ -109,7 +111,7 @@ async def llm_worker(
                             error=str(e),
                         );
 
-        rendered_prompt = Template(prompt_template).render(ocr_text=llm_input);
+        rendered_prompt = Template(prompt_template).render(ocr_text=llm_input, **template_vars);
 
         if tracker and llm_result:
             llm_stage = tracker.state["stages"]["llm_worker"];

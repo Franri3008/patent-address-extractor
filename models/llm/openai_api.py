@@ -55,10 +55,10 @@ class OpenAIModel(LLMModel):
     def model_name(self) -> str:
         return self._model;
 
-    def extract_addresses(self, ocr_text: str, prompt_template: str) -> LLMResult:
+    def extract_addresses(self, ocr_text: str, prompt_template: str, template_vars: dict | None = None) -> LLMResult:
         from openai import OpenAI
         client = OpenAI(api_key=self._api_key, base_url=self._base_url);
-        prompt = Template(prompt_template).render(ocr_text=ocr_text);
+        prompt = Template(prompt_template).render(ocr_text=ocr_text, **(template_vars or {}));
 
         t0 = time.perf_counter();
         response = client.chat.completions.create(

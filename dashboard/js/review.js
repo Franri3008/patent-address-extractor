@@ -1,17 +1,14 @@
-// Patent Review Tab — js/review.js
-// Loaded alongside app.js; activated when the Review tab is clicked.
-
-let reviewPatents   = [];   // full list from /api/patents
-let reviewMap       = {};   // patent_id → patent object
+let reviewPatents = [];   // full list from /api/patents
+let reviewMap = {};   // patent_id → patent object
 let currentPatentId = null;
 
 // Zoom / pan state
-let zoomLevel  = 1.0;
-let panX       = 0;
-let panY       = 0;
-let isPanning  = false;
-let panStartX  = 0;
-let panStartY  = 0;
+let zoomLevel = 1.0;
+let panX = 0;
+let panY = 0;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
 let panOriginX = 0;
 let panOriginY = 0;
 
@@ -36,7 +33,7 @@ async function loadReviewTab() {
 // ── Patent list ──────────────────────────────────────────────────────────────
 
 function renderPatentList(patents) {
-  const list  = document.getElementById('review-list');
+  const list = document.getElementById('review-list');
   const count = document.getElementById('review-count');
 
   count.textContent = patents.length;
@@ -62,7 +59,7 @@ function renderPatentList(patents) {
       ? `<span class="rv-date">${String(p.publication_date).slice(0, 8)}</span>`
       : '';
 
-    const src  = p.source === 'batch' ? '<span class="rv-src">batch</span>' : '';
+    const src = p.source === 'batch' ? '<span class="rv-src">batch</span>' : '';
     const imgs = p.has_images ? '' : '<span class="rv-no-img" title="No images">⊘</span>';
 
     item.innerHTML = `
@@ -106,33 +103,33 @@ function selectPatent(patentId) {
   // Verdict badge
   const verdictEl = document.getElementById('rv-verdict');
   if (p.reviewed) {
-    verdictEl.textContent  = p.is_correct ? '✓ Correct' : '✗ Wrong';
-    verdictEl.className    = 'review-verdict ' + (p.is_correct ? 'verdict-correct' : 'verdict-wrong');
-    verdictEl.hidden       = false;
+    verdictEl.textContent = p.is_correct ? '✓ Correct' : '✗ Wrong';
+    verdictEl.className = 'review-verdict ' + (p.is_correct ? 'verdict-correct' : 'verdict-wrong');
+    verdictEl.hidden = false;
   } else {
     verdictEl.textContent = '';
-    verdictEl.hidden      = true;
+    verdictEl.hidden = true;
   }
 
   // Images
-  const zoomWrap   = document.getElementById('rv-zoom-wrap');
-  const zoomInner  = document.getElementById('rv-zoom-inner');
-  const noImages   = document.getElementById('rv-no-images');
+  const zoomWrap = document.getElementById('rv-zoom-wrap');
+  const zoomInner = document.getElementById('rv-zoom-inner');
+  const noImages = document.getElementById('rv-no-images');
 
   if (p.has_images && p.thumbnail_paths && p.thumbnail_paths.length > 0) {
-    zoomWrap.hidden  = false;
-    noImages.hidden  = true;
+    zoomWrap.hidden = false;
+    noImages.classList.remove('visible');
     zoomInner.innerHTML = '';
     p.thumbnail_paths.forEach((src, i) => {
       const img = document.createElement('img');
-      img.src   = src + '?' + Date.now();
-      img.alt   = `Page ${i + 1}`;
+      img.src = src + '?' + Date.now();
+      img.alt = `Page ${i + 1}`;
       img.className = 'rv-page-img';
       zoomInner.appendChild(img);
     });
   } else {
-    zoomWrap.hidden  = true;
-    noImages.hidden  = false;
+    zoomWrap.hidden = true;
+    noImages.classList.add('visible');
   }
 
   // JSON output
@@ -145,23 +142,23 @@ function selectPatent(patentId) {
 
   // Vote buttons
   const btnCorrect = document.getElementById('btn-correct');
-  const btnWrong   = document.getElementById('btn-wrong');
-  const savedMsg   = document.getElementById('vote-saved-msg');
+  const btnWrong = document.getElementById('btn-wrong');
+  const savedMsg = document.getElementById('vote-saved-msg');
 
   if (p.reviewed) {
     btnCorrect.disabled = true;
-    btnWrong.disabled   = true;
+    btnWrong.disabled = true;
     savedMsg.textContent = 'Already reviewed';
-    savedMsg.className   = 'vote-saved-msg vote-already';
+    savedMsg.className = 'vote-saved-msg vote-already';
   } else {
     btnCorrect.disabled = false;
-    btnWrong.disabled   = false;
+    btnWrong.disabled = false;
     savedMsg.textContent = '';
-    savedMsg.className   = 'vote-saved-msg';
+    savedMsg.className = 'vote-saved-msg';
   }
 
   // Show viewer
-  document.getElementById('review-viewer-empty').hidden   = true;
+  document.getElementById('review-viewer-empty').hidden = true;
   document.getElementById('review-viewer-content').hidden = false;
 }
 
@@ -171,28 +168,28 @@ async function submitReview(isCorrect) {
   if (!currentPatentId) return;
 
   const btnCorrect = document.getElementById('btn-correct');
-  const btnWrong   = document.getElementById('btn-wrong');
-  const savedMsg   = document.getElementById('vote-saved-msg');
+  const btnWrong = document.getElementById('btn-wrong');
+  const savedMsg = document.getElementById('vote-saved-msg');
 
   btnCorrect.disabled = true;
-  btnWrong.disabled   = true;
+  btnWrong.disabled = true;
   savedMsg.textContent = 'Saving…';
-  savedMsg.className   = 'vote-saved-msg';
+  savedMsg.className = 'vote-saved-msg';
 
   try {
     const res = await fetch('/api/review', {
-      method:  'POST',
-      headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify({patent_id: currentPatentId, is_correct: isCorrect}),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patent_id: currentPatentId, is_correct: isCorrect }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({error: res.statusText}));
+      const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || res.statusText);
     }
 
     // Update local state
     const p = reviewMap[currentPatentId];
-    p.reviewed   = true;
+    p.reviewed = true;
     p.is_correct = isCorrect;
 
     // Update list badge
@@ -201,7 +198,7 @@ async function submitReview(isCorrect) {
       listItem.classList.add('reviewed');
       const badge = listItem.querySelector('.rv-badge');
       if (badge) {
-        badge.className  = `rv-badge ${isCorrect ? 'badge-correct' : 'badge-wrong'}`;
+        badge.className = `rv-badge ${isCorrect ? 'badge-correct' : 'badge-wrong'}`;
         badge.textContent = isCorrect ? '✓' : '✗';
       }
     }
@@ -209,20 +206,20 @@ async function submitReview(isCorrect) {
     // Update viewer verdict
     const verdictEl = document.getElementById('rv-verdict');
     verdictEl.textContent = isCorrect ? '✓ Correct' : '✗ Wrong';
-    verdictEl.className   = 'review-verdict ' + (isCorrect ? 'verdict-correct' : 'verdict-wrong');
-    verdictEl.hidden      = false;
+    verdictEl.className = 'review-verdict ' + (isCorrect ? 'verdict-correct' : 'verdict-wrong');
+    verdictEl.hidden = false;
 
     savedMsg.textContent = 'Saved ✓';
-    savedMsg.className   = 'vote-saved-msg vote-ok';
+    savedMsg.className = 'vote-saved-msg vote-ok';
 
     // Auto-advance to next unreviewed patent after a short delay
     setTimeout(() => advanceToNext(), 800);
 
   } catch (err) {
     savedMsg.textContent = `Error: ${err.message}`;
-    savedMsg.className   = 'vote-saved-msg vote-error';
-    btnCorrect.disabled  = false;
-    btnWrong.disabled    = false;
+    savedMsg.className = 'vote-saved-msg vote-error';
+    btnCorrect.disabled = false;
+    btnWrong.disabled = false;
   }
 }
 
@@ -232,12 +229,12 @@ function advanceToNext() {
     selectPatent(unreviewed[0].patent_id);
     // Scroll the list item into view
     const el = document.querySelector(`.review-item[data-id="${unreviewed[0].patent_id}"]`);
-    if (el) el.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 }
 
 document.getElementById('btn-correct').addEventListener('click', () => submitReview(true));
-document.getElementById('btn-wrong').addEventListener('click',   () => submitReview(false));
+document.getElementById('btn-wrong').addEventListener('click', () => submitReview(false));
 
 // ── Zoom & pan ────────────────────────────────────────────────────────────────
 
@@ -255,13 +252,13 @@ if (zoomWrap) {
     const delta = e.deltaY < 0 ? 0.15 : -0.15;
     zoomLevel = Math.min(4.0, Math.max(0.5, zoomLevel + delta));
     applyZoom();
-  }, {passive: false});
+  }, { passive: false });
 
   zoomWrap.addEventListener('mousedown', (e) => {
     if (zoomLevel <= 1.0) return;
-    isPanning  = true;
-    panStartX  = e.clientX;
-    panStartY  = e.clientY;
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
     panOriginX = panX;
     panOriginY = panY;
     zoomWrap.style.cursor = 'grabbing';

@@ -34,6 +34,22 @@ def extract_section_text(text: str, section_num: int) -> str | None:
     return None;
 
 
+def parse_known_names(row: dict) -> dict:
+    """Extract known applicant/inventor names from BigQuery row data.
+
+    Returns a dict suitable for passing as template_vars to the LLM prompt.
+    Names come as pipe-separated strings from BigQuery (e.g. "Foo Corp | Bar Inc").
+    """
+    result: dict = {};
+    assignees = row.get("assignee_names") or "";
+    inventors = row.get("inventor_names") or "";
+    if assignees:
+        result["known_applicants"] = [n.strip() for n in assignees.split("|") if n.strip()];
+    if inventors:
+        result["known_inventors"] = [n.strip() for n in inventors.split("|") if n.strip()];
+    return result;
+
+
 def extract_sections(text: str) -> set[int]:
     return {int(m) for m in _SECTION_RE.findall(text) if 10 <= int(m) <= _MAX_WIPO_SECTION};
 

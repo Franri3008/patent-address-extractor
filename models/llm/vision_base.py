@@ -18,7 +18,7 @@ class VisionLLMModel(ABC):
     """
 
     @abstractmethod
-    def extract_addresses_from_image(self, image: Image, prompt_template: str, page_number: int) -> LLMResult:
+    def extract_addresses_from_image(self, image: Image, prompt_template: str, page_number: int, template_vars: dict | None = None) -> LLMResult:
         """Extract structured addresses from a single page image."""
         ...
 

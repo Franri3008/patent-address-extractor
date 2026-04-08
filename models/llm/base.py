@@ -28,7 +28,7 @@ class LLMModel(ABC):
     """
 
     @abstractmethod
-    def extract_addresses(self, ocr_text: str, prompt_template: str) -> LLMResult:
+    def extract_addresses(self, ocr_text: str, prompt_template: str, template_vars: dict | None = None) -> LLMResult:
         """Extract structured inventor/applicant/agent addresses from OCR text."""
         ...
 

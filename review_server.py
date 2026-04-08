@@ -17,6 +17,7 @@ BASE_DIR        = Path(__file__).parent
 DASHBOARD_DIR   = BASE_DIR / "dashboard"
 OUTPUT_DIR      = BASE_DIR / "output"
 INDIVIDUAL_DIR  = OUTPUT_DIR / "individual"
+IMAGES_DIR      = OUTPUT_DIR / "images"   # batch-mode thumbnails
 TEST_DIR        = BASE_DIR / "test"
 GROUND_TRUTH    = TEST_DIR / "ground_truth.csv"
 TEST_IMAGES_DIR = TEST_DIR / "images"
@@ -41,27 +42,33 @@ def _load_reviews() -> dict[str, dict]:
 
 
 def _find_thumbnails(base_id: str) -> list[tuple[str, str]]:
-    if not INDIVIDUAL_DIR.exists():
-        return []
-
     results: list[tuple[str, str]] = []
     seen: set[str] = set()
-    for d in sorted(INDIVIDUAL_DIR.iterdir()):
-        if not d.is_dir():
-            continue
-        if d.name != base_id and not d.name.startswith(base_id):
-            continue
-        for img in sorted(d.glob("page_*_thumb.jpg")):
-            if img.name not in seen:
-                results.append((f"/thumbnails/{d.name}/{img.name}", d.name))
-                seen.add(img.name)
-        # Also check non-thumb pattern (page_1.jpg etc)
-        for img in sorted(d.glob("page_*.jpg")):
-            if "_thumb" in img.name:
+
+    # Search both output/individual/ (individual mode) and output/images/ (batch mode)
+    search_roots: list[tuple[Path, str]] = []
+    if INDIVIDUAL_DIR.exists():
+        search_roots.append((INDIVIDUAL_DIR, "individual"))
+    if IMAGES_DIR.exists():
+        search_roots.append((IMAGES_DIR, "images"))
+
+    for root, prefix in search_roots:
+        for d in sorted(root.iterdir()):
+            if not d.is_dir():
                 continue
-            if img.name not in seen:
-                results.append((f"/thumbnails/{d.name}/{img.name}", d.name))
-                seen.add(img.name)
+            if d.name != base_id and not d.name.startswith(base_id):
+                continue
+            for img in sorted(d.glob("page_*_thumb.jpg")):
+                if img.name not in seen:
+                    results.append((f"/thumbnails/{prefix}/{d.name}/{img.name}", d.name))
+                    seen.add(img.name)
+            # Also check non-thumb pattern (page_1.jpg etc)
+            for img in sorted(d.glob("page_*.jpg")):
+                if "_thumb" in img.name:
+                    continue
+                if img.name not in seen:
+                    results.append((f"/thumbnails/{prefix}/{d.name}/{img.name}", d.name))
+                    seen.add(img.name)
     return results
 
 
@@ -121,30 +128,33 @@ def _scan_individual() -> list[dict]:
             "publication_date": meta.get("publication_date", ""),
         })
 
-    for d in sorted(INDIVIDUAL_DIR.iterdir()):
-        if not d.is_dir():
+    for root, prefix in [(INDIVIDUAL_DIR, "individual"), (IMAGES_DIR, "images")]:
+        if not root.exists():
             continue
-        if any(d.name == sid or d.name.startswith(sid) for sid in seen_base_ids):
-            continue
-        imgs = sorted(d.glob("page_*_thumb.jpg")) or sorted(d.glob("page_*.jpg"))
-        if not imgs:
-            continue
-        folder_id = d.name
-        thumbs = [f"/thumbnails/{folder_id}/{img.name}" for img in imgs]
-        patents.append({
-            "patent_id":     folder_id,
-            "folder_id":     folder_id,
-            "country_code":  folder_id[:2] if len(folder_id) >= 2 else "WO",
-            "language":      "",
-            "llm_output":    {},
-            "run_id":        "",
-            "llm_provider":  "",
-            "ocr_model":     "",
-            "has_images":    True,
-            "thumbnail_paths": thumbs,
-            "source":        "individual",
-            "publication_date": "",
-        })
+        for d in sorted(root.iterdir()):
+            if not d.is_dir():
+                continue
+            if any(d.name == sid or d.name.startswith(sid) for sid in seen_base_ids):
+                continue
+            imgs = sorted(d.glob("page_*_thumb.jpg")) or sorted(d.glob("page_*.jpg"))
+            if not imgs:
+                continue
+            folder_id = d.name
+            thumbs = [f"/thumbnails/{prefix}/{folder_id}/{img.name}" for img in imgs]
+            patents.append({
+                "patent_id":     folder_id,
+                "folder_id":     folder_id,
+                "country_code":  folder_id[:2] if len(folder_id) >= 2 else "WO",
+                "language":      "",
+                "llm_output":    {},
+                "run_id":        "",
+                "llm_provider":  "",
+                "ocr_model":     "",
+                "has_images":    True,
+                "thumbnail_paths": thumbs,
+                "source":        "individual",
+                "publication_date": "",
+            })
 
     return patents
 
@@ -192,6 +202,7 @@ def _scan_batch_csv() -> list[dict]:
                     llm_output["found"] = row.get("addresses_found", "").lower() == "true"
                     llm_output["sections_detected"] = row.get("sections_found", "").split() if row.get("sections_found") else []
 
+                    thumb_info = _find_thumbnails(pid)
                     patents.append({
                         "patent_id":       pid,
                         "folder_id":       pid,
@@ -201,8 +212,8 @@ def _scan_batch_csv() -> list[dict]:
                         "run_id":          "",
                         "llm_provider":    row.get("llm_provider", ""),
                         "ocr_model":       row.get("ocr_model", ""),
-                        "has_images":      False,
-                        "thumbnail_paths": [],
+                        "has_images":      len(thumb_info) > 0,
+                        "thumbnail_paths": [url for url, _ in thumb_info],
                         "source":          "batch",
                         "publication_date": str(row.get("publication_date", "")),
                     })
@@ -295,9 +306,11 @@ class ReviewHandler(BaseHTTPRequestHandler):
         elif path.startswith("/pages/"):
             self._serve_file(DASHBOARD_DIR / path.lstrip("/"))
         elif path.startswith("/thumbnails/"):
-            # /thumbnails/{folder_id}/{filename}
+            # /thumbnails/{prefix}/{folder_id}/{filename}
+            # prefix is either 'individual' or 'images'
             rel = path[len("/thumbnails/"):]
-            self._serve_file(INDIVIDUAL_DIR / rel)
+            candidate = OUTPUT_DIR / rel
+            self._serve_file(candidate)
         elif path == "/api/patents":
             self._api_patents()
         elif path == "/api/reviews":

@@ -33,10 +33,10 @@ class OllamaModel(LLMModel):
     def model_name(self) -> str:
         return self._model;
 
-    def extract_addresses(self, ocr_text: str, prompt_template: str) -> LLMResult:
+    def extract_addresses(self, ocr_text: str, prompt_template: str, template_vars: dict | None = None) -> LLMResult:
         import ollama
 
-        prompt = Template(prompt_template).render(ocr_text=ocr_text);
+        prompt = Template(prompt_template).render(ocr_text=ocr_text, **(template_vars or {}));
         t0 = time.perf_counter();
 
         response = ollama.chat(

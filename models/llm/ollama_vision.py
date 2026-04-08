@@ -29,10 +29,10 @@ class OllamaVisionModel(VisionLLMModel):
     def model_name(self) -> str:
         return self._model;
 
-    def extract_addresses_from_image(self, image: Image, prompt_template: str, page_number: int) -> LLMResult:
+    def extract_addresses_from_image(self, image: Image, prompt_template: str, page_number: int, template_vars: dict | None = None) -> LLMResult:
         import ollama
 
-        prompt = Template(prompt_template).render(page_number=page_number);
+        prompt = Template(prompt_template).render(page_number=page_number, **(template_vars or {}));
 
         buf = io.BytesIO();
         image.save(buf, format="JPEG");

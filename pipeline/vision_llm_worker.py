@@ -9,6 +9,7 @@ from jinja2 import Template
 from models.llm.base import LLMResult
 from models.llm.vision_base import VisionLLMModel
 from utils.logger import get_logger
+from utils.wipo import parse_known_names
 
 logger = get_logger("vision_llm_worker");
 
@@ -101,6 +102,7 @@ async def vision_llm_worker(
             await result_q.put(_build_output(row, llm_result, item, pages_used=0, page_reason="error"));
             continue;
 
+        template_vars = parse_known_names(row);
         page_results: list[LLMResult] = [];
         pages_used = 0;
         page_reason = "max_pages";
@@ -111,7 +113,7 @@ async def vision_llm_worker(
                 try:
                     page_result = await asyncio.to_thread(
                         vision_model.extract_addresses_from_image,
-                        img, prompt_template, page_idx,
+                        img, prompt_template, page_idx, template_vars,
                     );
                     page_result.retries = attempt;
                     break;

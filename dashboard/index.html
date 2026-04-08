@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Patent Pipeline</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
   <div class="page">
 
@@ -15,203 +17,214 @@
       <button class="tab-btn" data-tab="review">Review</button>
     </nav>
 
-    <!-- ══════════════════════════════ PIPELINE TAB ══════════════════════════ -->
     <div id="tab-pipeline">
 
-    <!-- Header -->
-    <header>
-      <div class="header-left">
-        <h1>Patent Pipeline</h1>
-        <span id="run-mode" class="pill">--</span>
+      <!-- Header -->
+      <header>
+        <div class="header-left">
+          <h1>Patent Pipeline</h1>
+          <span id="run-mode" class="pill">--</span>
+        </div>
+        <div class="header-center">
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-bar"></div>
+          </div>
+          <span class="progress-label" id="progress-label">0 / 0</span>
+        </div>
+        <div class="header-right">
+          <span id="run-id" class="run-id">--</span>
+          <span id="elapsed" class="elapsed">0.0s</span>
+        </div>
+      </header>
+
+      <!-- Pipeline -->
+      <div class="pipeline-wrap">
+        <div class="pipeline">
+
+          <!-- 1. BigQuery -->
+          <div class="stage" id="stage-bq_fetch">
+            <div class="stage-head">
+              <span class="step-num">1</span>
+              <div>
+                <div class="stage-name">BigQuery</div>
+                <div class="stage-status" id="badge-bq_fetch">pending</div>
+              </div>
+            </div>
+            <div class="stage-body">
+              <div class="stat">
+                <span class="sv" id="bq-fetched">—</span>
+                <span class="sl">patents</span>
+              </div>
+              <div class="stat">
+                <span class="sv" id="bq-time">—</span>
+                <span class="sl">fetch</span>
+              </div>
+            </div>
+            <div class="stage-fab">
+              <img src="ui/icon-bq.svg" alt="">
+              <span class="fab-count" id="fab-bq">—</span>
+            </div>
+          </div>
+
+          <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none">
+              <line x1="0" y1="8" x2="38" y2="8" />
+              <polyline points="32,3 42,8 32,13" />
+            </svg></div>
+
+          <!-- 2. PDF -->
+          <div class="stage" id="stage-pdf_worker">
+            <div class="stage-head">
+              <span class="step-num">2</span>
+              <div>
+                <div class="stage-name">PDF Download</div>
+                <div class="stage-status" id="badge-pdf_worker">pending</div>
+              </div>
+            </div>
+            <div class="stage-body">
+              <div class="stat">
+                <span class="sv" id="pdf-completed">—</span>
+                <span class="sl">done</span>
+              </div>
+              <div class="stat err">
+                <span class="sv" id="pdf-errors">—</span>
+                <span class="sl">errors</span>
+              </div>
+              <div class="stat">
+                <span class="sv sm" id="pdf-type">—</span>
+                <span class="sl">type</span>
+              </div>
+            </div>
+            <div class="stage-current" id="pdf-current"></div>
+            <div class="stage-fab">
+              <img src="ui/icon-pdf.svg" alt="">
+              <span class="fab-count" id="fab-pdf">—</span>
+            </div>
+          </div>
+
+          <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none">
+              <line x1="0" y1="8" x2="38" y2="8" />
+              <polyline points="32,3 42,8 32,13" />
+            </svg></div>
+
+          <!-- 3. OCR -->
+          <div class="stage" id="stage-ocr_worker">
+            <div class="stage-head">
+              <span class="step-num">3</span>
+              <div>
+                <div class="stage-name">OCR</div>
+                <div class="stage-status" id="badge-ocr_worker">pending</div>
+              </div>
+            </div>
+            <div class="stage-body">
+              <div class="stat">
+                <span class="sv" id="ocr-completed">—</span>
+                <span class="sl">done</span>
+              </div>
+              <div class="stat">
+                <span class="sv" id="ocr-pages">—</span>
+                <span class="sl">pages</span>
+              </div>
+              <div class="stat">
+                <span class="sv sm" id="ocr-sections">—</span>
+                <span class="sl">sections</span>
+              </div>
+            </div>
+            <div class="stage-current" id="ocr-current"></div>
+            <div class="stage-fab">
+              <img src="ui/icon-ocr.svg" alt="">
+              <span class="fab-count" id="fab-ocr">—</span>
+            </div>
+          </div>
+
+          <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none">
+              <line x1="0" y1="8" x2="38" y2="8" />
+              <polyline points="32,3 42,8 32,13" />
+            </svg></div>
+
+          <!-- 4. LLM -->
+          <div class="stage" id="stage-llm_worker">
+            <div class="stage-head">
+              <span class="step-num">4</span>
+              <div>
+                <div class="stage-name">LLM Extract</div>
+                <div class="stage-status" id="badge-llm_worker">pending</div>
+              </div>
+            </div>
+            <div class="stage-body">
+              <div class="stat">
+                <span class="sv" id="llm-completed">—</span>
+                <span class="sl">done</span>
+              </div>
+              <div class="stat err">
+                <span class="sv" id="llm-errors">—</span>
+                <span class="sl">errors</span>
+              </div>
+              <div class="stat" id="stat-llm-found">
+                <span class="sv sm" id="llm-found">—</span>
+                <span class="sl">found?</span>
+              </div>
+            </div>
+            <div class="stage-current" id="llm-current"></div>
+            <div class="stage-fab">
+              <img src="ui/icon-llm.svg" alt="">
+              <span class="fab-count" id="fab-llm">—</span>
+            </div>
+          </div>
+
+          <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none">
+              <line x1="0" y1="8" x2="38" y2="8" />
+              <polyline points="32,3 42,8 32,13" />
+            </svg></div>
+
+          <!-- 5. Output -->
+          <div class="stage" id="stage-output_writer">
+            <div class="stage-head">
+              <span class="step-num">5</span>
+              <div>
+                <div class="stage-name">Output</div>
+                <div class="stage-status" id="badge-output_writer">pending</div>
+              </div>
+            </div>
+            <div class="stage-body">
+              <div class="stat ok">
+                <span class="sv" id="out-successes">—</span>
+                <span class="sl">ok</span>
+              </div>
+              <div class="stat err">
+                <span class="sv" id="out-failures">—</span>
+                <span class="sl">failed</span>
+              </div>
+            </div>
+            <div class="stage-fab">
+              <img src="ui/icon-output.svg" alt="">
+              <span class="fab-count" id="fab-out">—</span>
+            </div>
+          </div>
+
+        </div><!-- /.pipeline -->
+      </div><!-- /.pipeline-wrap -->
+
+      <!-- Timings row -->
+      <div class="timings-row">
+        <div class="timing-item"><span class="tv" id="avg-pdf">—</span><span class="tk">PDF avg</span></div>
+        <div class="timing-sep"></div>
+        <div class="timing-item"><span class="tv" id="avg-ocr">—</span><span class="tk">OCR avg</span></div>
+        <div class="timing-sep"></div>
+        <div class="timing-item"><span class="tv" id="avg-llm">—</span><span class="tk">LLM avg</span></div>
+        <div class="timing-sep"></div>
+        <div class="timing-item total"><span class="tv" id="total-time">—</span><span class="tk">total</span></div>
       </div>
-      <div class="header-center">
-        <div class="progress-track">
-          <div class="progress-fill" id="progress-bar"></div>
+
+      <!-- LLM Response panel -->
+      <div class="llm-panel">
+        <div class="panel-header">
+          <span class="panel-title">Latest LLM Response</span>
+          <button id="btn-compare" class="btn-compare" disabled>View Patent Pages</button>
         </div>
-        <span class="progress-label" id="progress-label">0 / 0</span>
+        <pre id="llm-response">Waiting for data…</pre>
       </div>
-      <div class="header-right">
-        <span id="run-id" class="run-id">--</span>
-        <span id="elapsed" class="elapsed">0.0s</span>
-      </div>
-    </header>
 
-    <!-- Pipeline -->
-    <div class="pipeline-wrap">
-      <div class="pipeline">
-
-        <!-- 1. BigQuery -->
-        <div class="stage" id="stage-bq_fetch">
-          <div class="stage-head">
-            <span class="step-num">1</span>
-            <div>
-              <div class="stage-name">BigQuery</div>
-              <div class="stage-status" id="badge-bq_fetch">pending</div>
-            </div>
-          </div>
-          <div class="stage-body">
-            <div class="stat">
-              <span class="sv" id="bq-fetched">—</span>
-              <span class="sl">patents</span>
-            </div>
-            <div class="stat">
-              <span class="sv" id="bq-time">—</span>
-              <span class="sl">fetch</span>
-            </div>
-          </div>
-          <div class="stage-fab">
-            <img src="ui/icon-bq.svg" alt="">
-            <span class="fab-count" id="fab-bq">—</span>
-          </div>
-        </div>
-
-        <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
-
-        <!-- 2. PDF -->
-        <div class="stage" id="stage-pdf_worker">
-          <div class="stage-head">
-            <span class="step-num">2</span>
-            <div>
-              <div class="stage-name">PDF Download</div>
-              <div class="stage-status" id="badge-pdf_worker">pending</div>
-            </div>
-          </div>
-          <div class="stage-body">
-            <div class="stat">
-              <span class="sv" id="pdf-completed">—</span>
-              <span class="sl">done</span>
-            </div>
-            <div class="stat err">
-              <span class="sv" id="pdf-errors">—</span>
-              <span class="sl">errors</span>
-            </div>
-            <div class="stat">
-              <span class="sv sm" id="pdf-type">—</span>
-              <span class="sl">type</span>
-            </div>
-          </div>
-          <div class="stage-current" id="pdf-current"></div>
-          <div class="stage-fab">
-            <img src="ui/icon-pdf.svg" alt="">
-            <span class="fab-count" id="fab-pdf">—</span>
-          </div>
-        </div>
-
-        <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
-
-        <!-- 3. OCR -->
-        <div class="stage" id="stage-ocr_worker">
-          <div class="stage-head">
-            <span class="step-num">3</span>
-            <div>
-              <div class="stage-name">OCR</div>
-              <div class="stage-status" id="badge-ocr_worker">pending</div>
-            </div>
-          </div>
-          <div class="stage-body">
-            <div class="stat">
-              <span class="sv" id="ocr-completed">—</span>
-              <span class="sl">done</span>
-            </div>
-            <div class="stat">
-              <span class="sv" id="ocr-pages">—</span>
-              <span class="sl">pages</span>
-            </div>
-            <div class="stat">
-              <span class="sv sm" id="ocr-sections">—</span>
-              <span class="sl">sections</span>
-            </div>
-          </div>
-          <div class="stage-current" id="ocr-current"></div>
-          <div class="stage-fab">
-            <img src="ui/icon-ocr.svg" alt="">
-            <span class="fab-count" id="fab-ocr">—</span>
-          </div>
-        </div>
-
-        <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
-
-        <!-- 4. LLM -->
-        <div class="stage" id="stage-llm_worker">
-          <div class="stage-head">
-            <span class="step-num">4</span>
-            <div>
-              <div class="stage-name">LLM Extract</div>
-              <div class="stage-status" id="badge-llm_worker">pending</div>
-            </div>
-          </div>
-          <div class="stage-body">
-            <div class="stat">
-              <span class="sv" id="llm-completed">—</span>
-              <span class="sl">done</span>
-            </div>
-            <div class="stat err">
-              <span class="sv" id="llm-errors">—</span>
-              <span class="sl">errors</span>
-            </div>
-            <div class="stat" id="stat-llm-found">
-              <span class="sv sm" id="llm-found">—</span>
-              <span class="sl">found?</span>
-            </div>
-          </div>
-          <div class="stage-current" id="llm-current"></div>
-          <div class="stage-fab">
-            <img src="ui/icon-llm.svg" alt="">
-            <span class="fab-count" id="fab-llm">—</span>
-          </div>
-        </div>
-
-        <div class="connector"><svg viewBox="0 0 48 16" preserveAspectRatio="none"><line x1="0" y1="8" x2="38" y2="8"/><polyline points="32,3 42,8 32,13"/></svg></div>
-
-        <!-- 5. Output -->
-        <div class="stage" id="stage-output_writer">
-          <div class="stage-head">
-            <span class="step-num">5</span>
-            <div>
-              <div class="stage-name">Output</div>
-              <div class="stage-status" id="badge-output_writer">pending</div>
-            </div>
-          </div>
-          <div class="stage-body">
-            <div class="stat ok">
-              <span class="sv" id="out-successes">—</span>
-              <span class="sl">ok</span>
-            </div>
-            <div class="stat err">
-              <span class="sv" id="out-failures">—</span>
-              <span class="sl">failed</span>
-            </div>
-          </div>
-          <div class="stage-fab">
-            <img src="ui/icon-output.svg" alt="">
-            <span class="fab-count" id="fab-out">—</span>
-          </div>
-        </div>
-
-      </div><!-- /.pipeline -->
-    </div><!-- /.pipeline-wrap -->
-
-    <!-- Timings row -->
-    <div class="timings-row">
-      <div class="timing-item"><span class="tv" id="avg-pdf">—</span><span class="tk">PDF avg</span></div>
-      <div class="timing-sep"></div>
-      <div class="timing-item"><span class="tv" id="avg-ocr">—</span><span class="tk">OCR avg</span></div>
-      <div class="timing-sep"></div>
-      <div class="timing-item"><span class="tv" id="avg-llm">—</span><span class="tk">LLM avg</span></div>
-      <div class="timing-sep"></div>
-      <div class="timing-item total"><span class="tv" id="total-time">—</span><span class="tk">total</span></div>
-    </div>
-
-    <!-- LLM Response panel -->
-    <div class="llm-panel">
-      <div class="panel-header">
-        <span class="panel-title">Latest LLM Response</span>
-        <button id="btn-compare" class="btn-compare" disabled>View Patent Pages</button>
-      </div>
-      <pre id="llm-response">Waiting for data…</pre>
-    </div>
-
-  </div><!-- /#tab-pipeline -->
+    </div><!-- /#tab-pipeline -->
 
     <!-- ══════════════════════════════ REVIEW TAB ════════════════════════════ -->
     <div id="tab-review" hidden>
@@ -256,9 +269,9 @@
                     <!-- images injected here -->
                   </div>
                 </div>
-                <div class="review-no-images" id="rv-no-images" hidden>
+                <div class="review-no-images" id="rv-no-images">
                   <span>No page images available for this patent.<br>
-                  Re-run with <code>save_thumbnails: true</code> to capture them.</span>
+                    Re-run with <code>save_thumbnails: true</code> to capture them.</span>
                 </div>
               </div>
 
@@ -275,7 +288,7 @@
             <!-- Vote bar -->
             <div class="review-vote-bar">
               <button class="btn-correct" id="btn-correct">✓ Correct</button>
-              <button class="btn-wrong"   id="btn-wrong">✗ Wrong</button>
+              <button class="btn-wrong" id="btn-wrong">✗ Wrong</button>
               <span class="vote-saved-msg" id="vote-saved-msg"></span>
             </div>
 
@@ -318,10 +331,11 @@
         btn.classList.add('active');
         const tab = btn.dataset.tab;
         document.getElementById('tab-pipeline').hidden = tab !== 'pipeline';
-        document.getElementById('tab-review').hidden   = tab !== 'review';
+        document.getElementById('tab-review').hidden = tab !== 'review';
         if (tab === 'review') loadReviewTab();
       });
     });
   </script>
 </body>
+
 </html>
