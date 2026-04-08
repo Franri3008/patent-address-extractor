@@ -6,6 +6,12 @@ _SECTION_RE = re.compile(r"(?<!\d)\((\d{2,3})\)(?!\d)");
 # Matches WIPO section headers only when they appear at the start of a line (optionally preceded by whitespace) - avoids false positives like house numbers "Hauptstraße (72), Berlin" which are always mid-line
 _SECTION_HEADER_RE = re.compile(r"^\s*\((\d{2,3})\)", re.MULTILINE);
 
+# Valid WIPO PCT section numbers are in the range 10–90.
+# Numbers like (100), (240), (251) are patent reference numerals from the
+# abstract / figures and must be excluded to avoid false positives in the
+# page-decision heuristic.
+_MAX_WIPO_SECTION = 90;
+
 _TARGET_SECTION = 72;
 
 def extract_section_text(text: str, section_num: int) -> str | None:
@@ -29,7 +35,7 @@ def extract_section_text(text: str, section_num: int) -> str | None:
 
 
 def extract_sections(text: str) -> set[int]:
-    return {int(m) for m in _SECTION_RE.findall(text) if 10 <= int(m) <= 899};
+    return {int(m) for m in _SECTION_RE.findall(text) if 10 <= int(m) <= _MAX_WIPO_SECTION};
 
 
 def page_decision(sections: set[int]) -> tuple[str, str]:

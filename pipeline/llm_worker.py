@@ -59,13 +59,21 @@ async def llm_worker(
                            current_patent=pub_number,
                            queue_size=text_q.qsize());
 
-        # Trim to only sections (71) and (72) to minimise token count.
-        # Falls back to full OCR text if neither section is detected.
-        sections_text = "\n\n".join(filter(None, [
-            extract_section_text(ocr_text, 71),
-            extract_section_text(ocr_text, 72),
-        ]));
-        llm_input = sections_text or ocr_text;
+        # Trim to target sections to minimise token count.
+        # When (72) is missing from OCR (e.g. two-column layout garbled by
+        # OCR), fall back to the full OCR text so the LLM can still attempt
+        # extraction from whatever context is available.
+        sec71 = extract_section_text(ocr_text, 71);
+        sec72 = extract_section_text(ocr_text, 72);
+        sec74 = extract_section_text(ocr_text, 74);
+
+        if sec72:
+            # Happy path: we have (72), trim aggressively.
+            llm_input = "\n\n".join(filter(None, [sec71, sec72, sec74]));
+        else:
+            # (72) missing from OCR — send full text so the LLM has maximum
+            # context (covers garbled column reads, truncated output, etc.).
+            llm_input = ocr_text;
 
         logger.debug(
             f"[LLM] {pub_number}: OCR chars={len(ocr_text)}, trimmed chars={len(llm_input)}"
