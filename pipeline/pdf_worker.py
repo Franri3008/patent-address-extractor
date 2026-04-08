@@ -23,6 +23,7 @@ from pdf2image import convert_from_bytes
 from PIL import Image as PILImage
 
 from utils.logger import get_logger
+from utils.status_tracker import StatusTracker
 
 logger = get_logger("pdf_worker");
 
@@ -113,6 +114,7 @@ async def pdf_worker(
     image_q: asyncio.Queue,
     config: dict,
     n_sentinels_to_emit: int,
+    tracker: StatusTracker | None = None,
 ) -> None:
     """
     Single PDF worker coroutine. Consumes patent rows from patent_q,
@@ -144,6 +146,8 @@ async def pdf_worker(
                 return;
 
             pub_number: str = str(row.get("publication_number", ""));
+            if tracker:
+                tracker.update("pdf_worker", status="running", current_patent=pub_number);
             t0 = time.perf_counter();
             result = {
                 "row": row,
@@ -186,6 +190,19 @@ async def pdf_worker(
                 logger.warning(f"[PDF] {pub_number}: {e}");
             finally:
                 result["elapsed_s"] = time.perf_counter() - t0;
+
+            if tracker:
+                is_err = result["error"] is not None;
+                pdf_stage = tracker.state["stages"]["pdf_worker"];
+                tracker.update(
+                    "pdf_worker",
+                    completed=pdf_stage["completed"] + 1,
+                    errors=pdf_stage["errors"] + (1 if is_err else 0),
+                    queue_size=image_q.qsize(),
+                    last_elapsed_s=round(result["elapsed_s"], 3),
+                    last_pdf_type=result["pdf_type"],
+                );
+                tracker.record_timing("pdf", result["elapsed_s"]);
 
             await image_q.put(result);
             patent_q.task_done();

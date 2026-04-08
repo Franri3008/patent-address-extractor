@@ -14,6 +14,7 @@ from jinja2 import Template
 
 from models.llm.base import LLMModel, LLMResult
 from utils.logger import get_logger
+from utils.status_tracker import StatusTracker
 from utils.wipo import extract_section_text
 
 logger = get_logger("llm_worker");
@@ -30,6 +31,7 @@ async def llm_worker(
     result_q: asyncio.Queue,
     llm_model: LLMModel,
     config: dict,
+    tracker: StatusTracker | None = None,
 ) -> None:
     """
     Single LLM worker coroutine. Consumes from text_q,
@@ -51,6 +53,11 @@ async def llm_worker(
         row = item["row"];
         ocr_text: str = item["ocr_text"];
         pub_number = str(row.get("publication_number", "unknown"));
+
+        if tracker:
+            tracker.update("llm_worker", status="running",
+                           current_patent=pub_number,
+                           queue_size=text_q.qsize());
 
         # Trim to only sections (71) and (72) to minimise token count.
         # Falls back to full OCR text if neither section is detected.
@@ -95,6 +102,35 @@ async def llm_worker(
                         );
 
         rendered_prompt = Template(prompt_template).render(ocr_text=llm_input);
+
+        if tracker and llm_result:
+            llm_stage = tracker.state["stages"]["llm_worker"];
+            tracker.update(
+                "llm_worker",
+                completed=llm_stage["completed"] + 1,
+                errors=llm_stage["errors"] + (1 if llm_result.error else 0),
+                last_elapsed_s=round(llm_result.elapsed_s, 3),
+                last_raw_response=llm_result.raw_response or "",
+                last_result_preview={
+                    "found": llm_result.found,
+                    "inventors_count": len(llm_result.inventors),
+                    "applicants_count": len(llm_result.applicants),
+                    "agents_count": len(llm_result.agents),
+                },
+                queue_size=result_q.qsize(),
+            );
+            tracker.record_timing("llm", llm_result.elapsed_s);
+
+            # Save used page images for comparison view
+            images = item["pdf_meta"].get("images");
+            pages_used = item.get("pages_used", 0);
+            if images and pages_used:
+                page_paths = tracker.save_page_images(pub_number, images, pages_used);
+                tracker.set_comparison(pub_number, page_paths, {
+                    "inventors": llm_result.inventors,
+                    "applicants": llm_result.applicants,
+                    "agents": llm_result.agents,
+                });
 
         await result_q.put({
             "row": row,

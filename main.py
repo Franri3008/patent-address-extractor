@@ -19,6 +19,7 @@ from pipeline.pdf_worker import pdf_worker
 from pipeline.vision_llm_worker import vision_llm_worker
 from utils.logger import get_logger
 from utils.reporter import print_individual_report, write_batch_report
+from utils.status_tracker import StatusTracker
 
 logger = get_logger("main");
 
@@ -32,7 +33,8 @@ def load_config(path: str) -> dict:
         return json.load(f);
 
 
-async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> dict:
+async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
+                       tracker: StatusTracker | None = None) -> dict:
     """Assemble and run the async multi-stage pipeline."""
     workers_cfg = config["workers"];
     q_size: int = workers_cfg["queue_max_size"];
@@ -57,7 +59,8 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
         asyncio.create_task(_feed()),
         *[
             asyncio.create_task(
-                pdf_worker(patent_q, image_q, config, n_sentinels_to_emit=1)
+                pdf_worker(patent_q, image_q, config, n_sentinels_to_emit=1,
+                           tracker=tracker)
             )
             for _ in range(n_pdf)
         ],
@@ -89,11 +92,13 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
 
         middle_tasks = [
             asyncio.create_task(
-                ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config)
+                ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config,
+                                tracker=tracker)
             ),
             *[
                 asyncio.create_task(
-                    llm_worker(text_q, result_q, llm_model, config)
+                    llm_worker(text_q, result_q, llm_model, config,
+                               tracker=tracker)
                 )
                 for _ in range(n_llm)
             ],
@@ -101,7 +106,8 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str) -> di
         n_result_sentinels = n_llm;
 
     output_task = asyncio.create_task(
-        output_stage(result_q, config, run_id, total, n_result_sentinels, stats)
+        output_stage(result_q, config, run_id, total, n_result_sentinels, stats,
+                     tracker=tracker)
     );
 
     await asyncio.gather(*pdf_tasks, *middle_tasks, output_task);
@@ -142,6 +148,9 @@ def main() -> None:
     fname = tmpl.format(yyyy=yyyy, mm=mm);
     run_id = f"{fname}_{mode}";
 
+    dashboard_dir = Path("dashboard");
+    dashboard_dir.mkdir(parents=True, exist_ok=True);
+
     t_start = time.perf_counter();
     logger.info(f"Run started — mode={mode}, run_id={run_id}");
 
@@ -164,7 +173,20 @@ def main() -> None:
             logger.info(f"Limit applied: processing {len(patent_rows)} of available rows.");
 
     logger.info(f"Processing {len(patent_rows)} patents ...");
-    stats = asyncio.run(run_pipeline(config, patent_rows, run_id));
+
+    tracker = StatusTracker(
+        dashboard_dir=dashboard_dir,
+        run_id=run_id,
+        run_mode=mode,
+        pipeline_mode=config.get("pipeline_mode", 0),
+        total_patents=len(patent_rows),
+    );
+    tracker.update("bq_fetch", status="done",
+                   patents_fetched=len(patent_rows),
+                   elapsed_s=round(time.perf_counter() - t_start, 3));
+
+    stats = asyncio.run(run_pipeline(config, patent_rows, run_id, tracker=tracker));
+    tracker.finish();
 
     elapsed = time.perf_counter() - t_start;
     logger.info(f"Pipeline complete in {elapsed:.1f}s.");

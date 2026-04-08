@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from models.llm.base import LLMResult
 from utils.logger import get_logger
+from utils.status_tracker import StatusTracker
 
 logger = get_logger("output_writer");
 
@@ -123,6 +124,7 @@ async def output_stage(
     total: int,
     n_upstream_sentinels: int,
     stats: dict,
+    tracker: StatusTracker | None = None,
 ) -> None:
     """Single output-writer coroutine. Thread-safe because it's the only writer."""
     out_dir = Path(config["output"]["dir"]);
@@ -188,6 +190,15 @@ async def output_stage(
                 successes += 1;
             else:
                 failures += 1;
+
+            if tracker:
+                tracker.update(
+                    "output_writer",
+                    status="running",
+                    completed=successes + failures,
+                    successes=successes,
+                    failures=failures,
+                );
 
             pbar.update(1);
             pbar.set_postfix(ok=successes, fail=failures);

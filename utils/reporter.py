@@ -1,4 +1,3 @@
-"""Reporting utilities — individual and batch summaries."""
 from __future__ import annotations
 
 import json
@@ -65,7 +64,6 @@ def print_individual_report(meta_path: Path) -> None:
 
 
 def write_batch_report(meta_jsonl_path: Path, report_path: Path, stats: dict, total_elapsed_s: float | None = None) -> None:
-    """Read the batch JSONL metadata and write a summary JSON report."""
     if not meta_jsonl_path.exists():
         return;
 

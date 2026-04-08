@@ -5,7 +5,6 @@ import tqdm
 
 
 class _TqdmStream(logging.StreamHandler):
-    """Log handler that writes via tqdm.write() to avoid disrupting progress bars."""
     def emit(self, record: logging.LogRecord) -> None:
         try:
             tqdm.tqdm.write(self.format(record));

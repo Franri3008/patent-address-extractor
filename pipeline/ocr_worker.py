@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from models.ocr.base import OCRModel, OCRResult
 from utils.logger import get_logger
+from utils.status_tracker import StatusTracker
 from utils.wipo import extract_sections, page_decision
 
 logger = get_logger("ocr_worker");
@@ -37,6 +38,7 @@ async def ocr_coordinator(
     n_upstream_sentinels: int,
     n_downstream_sentinels: int,
     config: dict,
+    tracker: StatusTracker | None = None,
 ) -> None:
     """
     Single OCR coordinator coroutine.  Consumes from image_q, processes page
@@ -61,6 +63,11 @@ async def ocr_coordinator(
             row = item["row"];
             images: list | None = item["images"];
             pub_number = str(row.get("publication_number", "unknown"));
+
+            if tracker:
+                tracker.update("ocr_worker", status="running",
+                               current_patent=pub_number,
+                               queue_size=image_q.qsize());
 
             if item["error"] or not images:
                 await text_q.put({
@@ -105,6 +112,19 @@ async def ocr_coordinator(
                     logger.warning(f"[OCR] {pub_number} p{page_idx}: {e}\n{traceback.format_exc()}");
                     page_reason = "ocr_error";
                     break;
+
+            if tracker:
+                ocr_stage = tracker.state["stages"]["ocr_worker"];
+                tracker.update(
+                    "ocr_worker",
+                    completed=ocr_stage["completed"] + 1,
+                    last_pages_used=pages_used,
+                    last_page_reason=page_reason,
+                    last_sections=[f"({s})" for s in sorted(sections)],
+                    last_elapsed_s=round(accumulated_time, 3),
+                    queue_size=text_q.qsize(),
+                );
+                tracker.record_timing("ocr", accumulated_time);
 
             section_strs = [f"({s})" for s in sorted(sections)];
             await text_q.put({
