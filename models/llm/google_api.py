@@ -11,7 +11,7 @@ import time
 
 from jinja2 import Template
 
-from models.llm.base import LLMModel, LLMResult
+from models.llm.base import EXTRACTION_SCHEMA, LLMModel, LLMResult
 from models.llm.ollama import _parse_response
 from utils.logger import get_logger
 
@@ -58,6 +58,7 @@ class GoogleModel(LLMModel):
             generation_config=self._genai.GenerationConfig(
                 temperature=self._temperature,
                 response_mime_type="application/json",
+                response_schema=EXTRACTION_SCHEMA,
             ),
         );
         prompt = Template(prompt_template).render(ocr_text=ocr_text, **(template_vars or {}));

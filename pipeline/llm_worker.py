@@ -13,8 +13,10 @@ from pathlib import Path
 from jinja2 import Template
 
 from models.llm.base import LLMModel, LLMResult
+from pipeline.vision_verifier import verify_with_vision
 from utils.logger import get_logger
 from utils.status_tracker import StatusTracker
+from utils.validators import run_all_validations
 from utils.wipo import extract_section_text, parse_known_names
 
 logger = get_logger("llm_worker");
@@ -113,6 +115,34 @@ async def llm_worker(
 
         rendered_prompt = Template(prompt_template).render(ocr_text=llm_input, **template_vars);
 
+        # --- Post-validation (deterministic, no extra LLM calls) ---
+        validation_warnings: list[str] = [];
+        if (
+            config["llm"].get("post_validation", {}).get("enabled", False)
+            and llm_result
+            and not llm_result.error
+        ):
+            validation_warnings = run_all_validations(
+                llm_result,
+                known_applicants=template_vars.get("known_applicants"),
+                known_inventors=template_vars.get("known_inventors"),
+                ocr_sections=item.get("sections"),
+            );
+            if validation_warnings:
+                logger.info(
+                    f"[LLM] {pub_number}: validation warnings: {validation_warnings}"
+                );
+
+                # --- Vision LLM verification fallback ---
+                images = item["pdf_meta"].get("images");
+                if images and config.get("verification", {}).get("enabled", False):
+                    verified = await verify_with_vision(
+                        images, llm_result, validation_warnings,
+                        row, config, template_vars,
+                    );
+                    if verified:
+                        llm_result = verified;
+
         if tracker and llm_result:
             llm_stage = tracker.state["stages"]["llm_worker"];
             tracker.update(
@@ -151,4 +181,5 @@ async def llm_worker(
             "page_reason": item["page_reason"],
             "sections_found": [f"({s})" for s in sorted(item.get("sections", []))],
             "llm_prompt": rendered_prompt,
+            "validation_warnings": validation_warnings,
         });

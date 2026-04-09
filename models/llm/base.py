@@ -1,6 +1,55 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+# JSON schema for structured output enforcement.
+# Backends that support native schema enforcement (Ollama, OpenAI, Google)
+# pass this to their API; others rely on prompt instructions.
+EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "inventors": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "address": {"type": ["string", "null"]},
+                },
+                "required": ["name", "address"],
+            },
+        },
+        "applicants": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "address": {"type": ["string", "null"]},
+                },
+                "required": ["name", "address"],
+            },
+        },
+        "agents": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "address": {"type": ["string", "null"]},
+                },
+                "required": ["name", "address"],
+            },
+        },
+        "sections_detected": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "found": {"type": "boolean"},
+    },
+    "required": ["inventors", "applicants", "agents", "sections_detected", "found"],
+    "additionalProperties": False,
+};
+
 
 @dataclass
 class LLMResult:

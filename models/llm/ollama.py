@@ -13,7 +13,7 @@ import time
 
 from jinja2 import Template
 
-from models.llm.base import LLMModel, LLMResult
+from models.llm.base import EXTRACTION_SCHEMA, LLMModel, LLMResult
 from utils.logger import get_logger
 
 logger = get_logger("llm.ollama");
@@ -42,6 +42,7 @@ class OllamaModel(LLMModel):
         response = ollama.chat(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
+            format=EXTRACTION_SCHEMA,
             options={"temperature": self._temperature},
             think=self._think,
         );

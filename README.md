@@ -208,6 +208,96 @@ output/
 
 `publication_number`, `title_text`, `application_number`, `publication_date`, `inventor_names`, `assignee_names`, `cpc_codes`, `google_patents_url`, **`inventors_with_address`** (JSON), **`applicants_with_address`** (JSON), **`agents_with_address`** (JSON), `addresses_found`, `pdf_type`, `pages_used`, `page_reason`, `ocr_model`, `llm_provider`, `ocr_elapsed_s`, `llm_elapsed_s`, `llm_cost_usd`, `error`
 
+## Accuracy Improvements
+
+Several optional modules improve extraction accuracy on noisy, scanned, and two-column patents. All are disabled by default and enabled via `config.json`.
+
+### Structured Output Enforcement
+
+All LLM backends now pass a JSON schema to the API when the provider supports it natively. This eliminates JSON parse failures and prevents the model from inventing extra fields or returning malformed responses.
+
+| Provider  | Enforcement method                                      |
+| --------- | ------------------------------------------------------- |
+| Ollama    | `format=` parameter with JSON schema                    |
+| OpenAI    | `response_format.json_schema` with `strict: true`       |
+| Google    | `response_schema` in `GenerationConfig`                 |
+| Anthropic | Prompt-based (no native schema mode)                    |
+
+No config change required — this is always active.
+
+### Known-Entity Hints from BigQuery
+
+Before calling the LLM, the pipeline injects the known applicant and inventor names from BigQuery into the prompt. This helps the LLM find all expected entities even when OCR garbles names (e.g. in two-column layouts). The LLM is instructed to locate each known name in the text and attribute the correct address to it.
+
+```json
+"llm": {
+  "template_vars": {}  // automatically populated from BigQuery row
+}
+```
+
+No config change required — names are always injected when available.
+
+### Post-Validation (3C)
+
+Deterministic checks that run after LLM extraction with no extra model calls. Issues are stored as `validation_warnings` in the metadata JSONL and used to trigger vision verification when enabled.
+
+Checks performed:
+- **Country codes** — validates `(XX)` codes in extracted addresses against ISO 3166-1 alpha-2
+- **Entity completeness** — flags known BigQuery applicants/inventors missing from the extraction (fuzzy match)
+- **Section consistency** — flags mismatches between OCR-detected sections and LLM-reported sections
+
+```json
+"llm": {
+  "post_validation": {
+    "enabled": true
+  }
+}
+```
+
+### Two-Column Layout Detection (4A+4B)
+
+WIPO first pages have a two-column layout in the top ~60–70% of the page (left column: bibliographic data with sections 71, 72, 74; right column: classification codes, etc.), followed by a horizontal separator line, then full-width content below (title, abstract, drawings). OCR naively reads across both columns, mixing the text.
+
+When enabled, the pipeline:
+1. Detects the horizontal separator line and vertical column gap using projection profiles (no GPU required)
+2. On page 1 only, crops just the left column above the separator before running OCR
+3. Falls back to full-page OCR if no two-column layout is detected (confidence below threshold)
+
+```json
+"column_detection": {
+  "enabled": true,
+  "confidence_threshold": 0.7
+}
+```
+
+Requires `numpy` (already a transitive dependency via PyTorch).
+
+### Vision LLM Verification Fallback (4D)
+
+When post-validation flags issues (missing known entities, unknown country codes, section mismatches), the pipeline automatically re-extracts addresses by sending the original page image to a vision-capable LLM. The vision result replaces the OCR+LLM result if the extraction succeeds.
+
+Recommended model: `gemma4:e2b` (or any Ollama vision model). The verification model is configured separately from the main pipeline model.
+
+```json
+"verification": {
+  "enabled": true,
+  "vision_llm": {
+    "provider": "ollama",
+    "model": "gemma4:e2b",
+    "temperature": 0.0
+  }
+}
+```
+
+**Recommended stack for maximum accuracy:**
+```json
+"llm": { "post_validation": { "enabled": true } },
+"column_detection": { "enabled": true, "confidence_threshold": 0.7 },
+"verification": { "enabled": true, "vision_llm": { "provider": "ollama", "model": "gemma4:e2b", "temperature": 0.0 } }
+```
+
+---
+
 ## Adding a New OCR Model
 
 1. Create `models/ocr/my_model.py` subclassing `OCRModel`
@@ -254,3 +344,72 @@ Same pattern — subclass `LLMModel`, implement `extract_addresses()`, register 
 ```
 
 Bounded queues between each stage provide automatic backpressure: if OCR is slower than PDF download, the image queue fills and download workers pause automatically — no memory overflow.
+
+---
+
+## Quick Reference
+
+### Setup
+
+```bash
+pip install -r requirements.txt                                          # install dependencies
+gcloud auth application-default login                                    # BigQuery auth
+cp config.example.json config.json                                       # create config
+```
+
+### Running the pipeline
+
+```bash
+python main.py                                                           # run using config.json settings
+python main.py --mode individual --patent WO2025086418                   # single patent
+python main.py --mode batch                                              # full batch (year/month from config)
+python main.py --pipeline-mode 1                                         # vision LLM (no OCR)
+python main.py --pipeline-mode 0                                         # OCR + LLM (default)
+```
+
+### Testing & review
+
+```bash
+python main.py --test                                                    # regression test against ground truth
+python main.py --review                                                  # start review dashboard (port 8765)
+```
+
+### BigQuery fetch only
+
+```bash
+python pipeline/bq_fetcher.py --year 2025 --month 1 --limit 10          # fetch 10 patents
+python pipeline/bq_fetcher.py --patent WO2025086418                      # single patent metadata
+```
+
+### OCR server (vLLM, run on GPU machine)
+
+```bash
+vllm serve PaddlePaddle/PaddleOCR-VL \
+  --trust-remote-code \
+  --served-model-name PaddleOCR-VL-0.9B \
+  --max-num-batched-tokens 16384 \
+  --no-enable-prefix-caching \
+  --mm-processor-cache-gb 0 \
+  --gpu-memory-utilization 0.4
+```
+
+### Ollama (local LLM)
+
+```bash
+ollama pull gemma4:e2b                                                   # pull default model
+ollama pull gemma4:12b                                                   # pull larger model
+ollama serve                                                             # start server (auto-starts on first use)
+```
+
+### Enable accuracy improvements (in config.json)
+
+```bash
+# Post-validation (deterministic checks, no extra cost)
+# Set: "llm": { "post_validation": { "enabled": true } }
+
+# Two-column layout splitting (fixes OCR garbling on WIPO first pages)
+# Set: "column_detection": { "enabled": true, "confidence_threshold": 0.7 }
+
+# Vision LLM verification fallback (re-extracts via image when validation fails)
+# Set: "verification": { "enabled": true, "vision_llm": { "provider": "ollama", "model": "gemma4:e2b", "temperature": 0.0 } }
+```

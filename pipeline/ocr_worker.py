@@ -19,6 +19,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from models.ocr.base import OCRModel, OCRResult
+from preprocessing.columns import detect_columns, split_top_left_column
 from utils.logger import get_logger
 from utils.status_tracker import StatusTracker
 from utils.wipo import extract_sections, page_decision
@@ -87,11 +88,27 @@ async def ocr_coordinator(
             page_reason = "not_reached";
             sections: set[int] = set();
 
+            col_detection_cfg = config.get("column_detection", {});
+            col_detection_enabled = col_detection_cfg.get("enabled", False);
+            col_confidence_threshold = col_detection_cfg.get("confidence_threshold", 0.7);
+
             for page_idx, img in enumerate(images, start=1):
                 t0 = time.perf_counter();
                 try:
+                    # Column splitting: only on page 1 (the bibliographic page)
+                    ocr_img = img;
+                    if page_idx == 1 and col_detection_enabled:
+                        layout = detect_columns(img);
+                        if layout.is_two_column and layout.confidence >= col_confidence_threshold:
+                            ocr_img = split_top_left_column(img, layout);
+                            logger.info(
+                                f"[OCR] {pub_number}: column split applied "
+                                f"(x={layout.split_x}, y={layout.separator_y}, "
+                                f"conf={layout.confidence:.2f})"
+                            );
+
                     result: OCRResult = await loop.run_in_executor(
-                        executor, _run_ocr_sync, ocr_model, [img]
+                        executor, _run_ocr_sync, ocr_model, [ocr_img]
                     );
                     accumulated_text += ("\n" if accumulated_text else "") + result.text;
                     accumulated_time += result.elapsed_s;

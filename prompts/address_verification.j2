@@ -1,0 +1,40 @@
+You are verifying an address extraction from a WIPO PCT patent page image.
+
+A previous OCR-based extraction produced the following result, but automated validation flagged potential issues:
+
+Previous extraction:
+{{ first_pass_json }}
+
+Validation warnings:
+{% for w in validation_warnings %}  - {{ w }}
+{% endfor %}
+
+The patent uses standard WIPO section numbering:
+  - (71) = Applicant(s)  — company or individual + address
+  - (72) = Inventor(s)   — format: "LASTNAME, Firstname; street, city, region (CC)."
+  - (74) = Agent / Law firm — name + address
+
+Important rules:
+  1. Look at the IMAGE directly — do not trust the previous extraction blindly.
+  2. Extract addresses EXACTLY as they appear in the image. Do NOT translate, infer, normalise, or reformat.
+  3. The text may be in ANY language. Preserve the original language of addresses entirely.
+  4. If an address is not found for an entity, set "address" to null.
+  5. Multiple inventors / applicants are each a separate object in their list.
+  6. A single section (e.g. (71)) may contain multiple entities separated by a period, semicolon, or new line. Each entity is a separate object — do not merge them into one.
+  7. Return ONLY valid JSON — no explanation, no markdown fences, no preamble.
+{% if known_applicants or known_inventors %}
+
+Known entities from the patent registry (use these to ensure all are included):
+{% if known_applicants %}  Applicants: {{ known_applicants | join(" | ") }}{% endif %}
+{% if known_inventors %}  Inventors: {{ known_inventors | join(" | ") }}{% endif %}
+  If an entity from this list appears in the image (even with slight misspellings), include it.
+{% endif %}
+
+Return this exact JSON structure:
+{
+  "inventors":  [{"name": "...", "address": "..."}],
+  "applicants": [{"name": "...", "address": "..."}],
+  "agents":     [{"name": "...", "address": "..."}],
+  "sections_detected": ["(71)", "(72)", "(74)"],
+  "found": true
+}

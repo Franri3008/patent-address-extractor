@@ -108,6 +108,10 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
         "error": llm.error,
     };
 
+    validation_warnings = item.get("validation_warnings", []);
+    if validation_warnings:
+        record["validation_warnings"] = validation_warnings;
+
     record["llm_prompt"] = item.get("llm_prompt", "");
 
     if config["run_mode"] == "individual":

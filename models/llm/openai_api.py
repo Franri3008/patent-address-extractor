@@ -12,7 +12,7 @@ import time
 
 from jinja2 import Template
 
-from models.llm.base import LLMModel, LLMResult
+from models.llm.base import EXTRACTION_SCHEMA, LLMModel, LLMResult
 from models.llm.ollama import _parse_response
 from utils.logger import get_logger
 
@@ -65,7 +65,14 @@ class OpenAIModel(LLMModel):
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
             temperature=self._temperature,
-            response_format={"type": "json_object"},
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "patent_extraction",
+                    "strict": True,
+                    "schema": EXTRACTION_SCHEMA,
+                },
+            },
         );
         elapsed = time.perf_counter() - t0;
 
