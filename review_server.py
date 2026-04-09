@@ -311,6 +311,8 @@ class ReviewHandler(BaseHTTPRequestHandler):
             rel = path[len("/thumbnails/"):]
             candidate = OUTPUT_DIR / rel
             self._serve_file(candidate)
+        elif path == "/api/mode":
+            self._json_response({"mode": "review"})
         elif path == "/api/patents":
             self._api_patents()
         elif path == "/api/reviews":

@@ -2,16 +2,6 @@ let reviewPatents = [];   // full list from /api/patents
 let reviewMap = {};   // patent_id → patent object
 let currentPatentId = null;
 
-// Zoom / pan state
-let zoomLevel = 1.0;
-let panX = 0;
-let panY = 0;
-let isPanning = false;
-let panStartX = 0;
-let panStartY = 0;
-let panOriginX = 0;
-let panOriginY = 0;
-
 // ── Entry point (called by tab switcher in index.html) ───────────────────────
 
 async function loadReviewTab() {
@@ -88,11 +78,9 @@ function selectPatent(patentId) {
   const p = reviewMap[patentId];
   if (!p) return;
 
-  // Reset zoom/pan
-  zoomLevel = 1.0;
-  panX = 0;
-  panY = 0;
-  applyZoom();
+  // Scroll images pane back to top
+  const zoomWrap = document.getElementById('rv-zoom-wrap');
+  if (zoomWrap) zoomWrap.scrollTop = 0;
 
   // Header
   document.getElementById('rv-patent-id').textContent = p.patent_id;
@@ -112,7 +100,6 @@ function selectPatent(patentId) {
   }
 
   // Images
-  const zoomWrap = document.getElementById('rv-zoom-wrap');
   const zoomInner = document.getElementById('rv-zoom-inner');
   const noImages = document.getElementById('rv-no-images');
 
@@ -236,44 +223,3 @@ function advanceToNext() {
 document.getElementById('btn-correct').addEventListener('click', () => submitReview(true));
 document.getElementById('btn-wrong').addEventListener('click', () => submitReview(false));
 
-// ── Zoom & pan ────────────────────────────────────────────────────────────────
-
-function applyZoom() {
-  const inner = document.getElementById('rv-zoom-inner');
-  if (!inner) return;
-  inner.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
-  inner.style.transformOrigin = '0 0';
-}
-
-const zoomWrap = document.getElementById('rv-zoom-wrap');
-if (zoomWrap) {
-  zoomWrap.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 0.15 : -0.15;
-    zoomLevel = Math.min(4.0, Math.max(0.5, zoomLevel + delta));
-    applyZoom();
-  }, { passive: false });
-
-  zoomWrap.addEventListener('mousedown', (e) => {
-    if (zoomLevel <= 1.0) return;
-    isPanning = true;
-    panStartX = e.clientX;
-    panStartY = e.clientY;
-    panOriginX = panX;
-    panOriginY = panY;
-    zoomWrap.style.cursor = 'grabbing';
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    if (!isPanning) return;
-    panX = panOriginX + (e.clientX - panStartX);
-    panY = panOriginY + (e.clientY - panStartY);
-    applyZoom();
-  });
-
-  window.addEventListener('mouseup', () => {
-    if (!isPanning) return;
-    isPanning = false;
-    zoomWrap.style.cursor = '';
-  });
-}

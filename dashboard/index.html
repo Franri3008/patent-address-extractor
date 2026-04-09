@@ -263,7 +263,7 @@
 
               <!-- Images pane -->
               <div class="review-images-pane">
-                <div class="pane-label">PDF Pages <span class="zoom-hint">scroll to zoom · drag to pan</span></div>
+                <div class="pane-label">PDF Pages</div>
                 <div class="review-zoom-wrap" id="rv-zoom-wrap">
                   <div class="review-zoom-inner" id="rv-zoom-inner">
                     <!-- images injected here -->
@@ -335,6 +335,26 @@
         if (tab === 'review') loadReviewTab();
       });
     });
+
+    // Hide the nav and show only the relevant tab based on server mode.
+    // Falls back gracefully when opened as a local file (no server).
+    (async () => {
+      try {
+        const res = await fetch('/api/mode');
+        if (!res.ok) return;
+        const { mode } = await res.json();
+        if (mode === 'viz') {
+          document.querySelector('.tab-bar').hidden = true;
+          document.getElementById('tab-pipeline').hidden = false;
+          document.getElementById('tab-review').hidden = true;
+        } else if (mode === 'review') {
+          document.querySelector('.tab-bar').hidden = true;
+          document.getElementById('tab-pipeline').hidden = true;
+          document.getElementById('tab-review').hidden = false;
+          loadReviewTab();
+        }
+      } catch { /* file:// or server not up — keep both tabs visible */ }
+    })();
   </script>
 </body>
 

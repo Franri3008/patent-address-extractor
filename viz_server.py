@@ -45,6 +45,8 @@ class VizHandler(BaseHTTPRequestHandler):
 
         if path in ("/", "/index.html"):
             self._serve_file(DASHBOARD_DIR / "index.html")
+        elif path == "/api/mode":
+            self._json_response({"mode": "viz"})
         elif path == "/api/status/stream":
             self._sse_stream()
         elif path.startswith(("/css/", "/js/", "/ui/", "/pages/")):
@@ -82,6 +84,15 @@ class VizHandler(BaseHTTPRequestHandler):
             with _sse_lock:
                 if client_q in _sse_clients:
                     _sse_clients.remove(client_q)
+
+    def _json_response(self, obj, status: int = 200) -> None:
+        data = json.dumps(obj, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _serve_file(self, path: Path) -> None:
         if not path.exists() or not path.is_file():
