@@ -35,11 +35,16 @@ else
 fi
 
 # Start ollama as a background daemon if not already running
+# Tuning: OLLAMA_NUM_PARALLEL controls concurrent inference slots (each needs its own KV cache).
+#         OLLAMA_FLASH_ATTENTION enables Flash Attention 2 (faster, less memory on H100).
+#         Override with env vars: OLLAMA_NUM_PARALLEL=6 ./setup.sh
 if ! pgrep -x ollama &>/dev/null; then
     info "Starting ollama daemon..."
+    OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-4} \
+    OLLAMA_FLASH_ATTENTION=1 \
     nohup ollama serve > /tmp/ollama.log 2>&1 &
     sleep 2
-    ok "ollama daemon started (logs → /tmp/ollama.log)"
+    ok "ollama daemon started (NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-4}, FLASH_ATTENTION=1, logs → /tmp/ollama.log)"
 else
     ok "ollama daemon already running"
 fi

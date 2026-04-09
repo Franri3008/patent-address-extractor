@@ -23,6 +23,7 @@ from pdf2image import convert_from_bytes
 from PIL import Image as PILImage
 
 from utils.logger import get_logger
+from utils.profiler import PipelineProfiler
 from utils.status_tracker import StatusTracker
 
 logger = get_logger("pdf_worker");
@@ -115,6 +116,7 @@ async def pdf_worker(
     config: dict,
     n_sentinels_to_emit: int,
     tracker: StatusTracker | None = None,
+    profiler: PipelineProfiler | None = None,
 ) -> None:
     """
     Single PDF worker coroutine. Consumes patent rows from patent_q,
@@ -148,7 +150,11 @@ async def pdf_worker(
             pub_number: str = str(row.get("publication_number", ""));
             if tracker:
                 tracker.update("pdf_worker", status="running", current_patent=pub_number);
+            if profiler:
+                profiler.start_patent(pub_number);
             t0 = time.perf_counter();
+            t_download_s = 0.0;
+            t_render_s = 0.0;
             result = {
                 "row": row,
                 "images": None,
@@ -161,6 +167,7 @@ async def pdf_worker(
 
             try:
                 page_url = _pub_to_url(pub_number);
+                t_dl0 = time.perf_counter();
                 pdf_url = await _scrape_pdf_url(session, page_url);
                 if not pdf_url:
                     raise RuntimeError(f"PDF URL not found for {pub_number}");
@@ -169,12 +176,15 @@ async def pdf_worker(
                 pdf_bytes = await _download_pdf(session, pdf_url);
                 if not pdf_bytes:
                     raise RuntimeError(f"PDF download failed for {pub_number}");
+                t_download_s = time.perf_counter() - t_dl0;
 
                 result["pdf_type"] = _detect_pdf_type(pdf_bytes);
 
+                t_rend0 = time.perf_counter();
                 images: list[PILImage.Image] = await asyncio.to_thread(
                     _extract_pages_sync, pdf_bytes, max_pages, dpi
                 );
+                t_render_s = time.perf_counter() - t_rend0;
                 result["images"] = images;
 
                 if save_thumbs and thumbs_saved < 999:
@@ -190,6 +200,8 @@ async def pdf_worker(
                 logger.warning(f"[PDF] {pub_number}: {e}");
             finally:
                 result["elapsed_s"] = time.perf_counter() - t0;
+                if profiler:
+                    profiler.record_pdf(pub_number, t_download_s, t_render_s, result["elapsed_s"]);
 
             if tracker:
                 is_err = result["error"] is not None;
@@ -204,5 +216,6 @@ async def pdf_worker(
                 );
                 tracker.record_timing("pdf", result["elapsed_s"]);
 
+            result["_enqueue_t"] = time.perf_counter();
             await image_q.put(result);
             patent_q.task_done();

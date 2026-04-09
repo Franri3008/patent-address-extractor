@@ -18,6 +18,7 @@ from pipeline.output_writer import output_stage
 from pipeline.pdf_worker import pdf_worker
 from pipeline.vision_llm_worker import vision_llm_worker
 from utils.logger import get_logger
+from utils.profiler import PipelineProfiler
 from utils.reporter import print_individual_report, write_batch_report
 from utils.status_tracker import StatusTracker
 
@@ -34,7 +35,8 @@ def load_config(path: str) -> dict:
 
 
 async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
-                       tracker: StatusTracker | None = None) -> dict:
+                       tracker: StatusTracker | None = None,
+                       profiler: PipelineProfiler | None = None) -> dict:
     """Assemble and run the async multi-stage pipeline."""
     workers_cfg = config["workers"];
     q_size: int = workers_cfg["queue_max_size"];
@@ -60,7 +62,7 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
         *[
             asyncio.create_task(
                 pdf_worker(patent_q, image_q, config, n_sentinels_to_emit=1,
-                           tracker=tracker)
+                           tracker=tracker, profiler=profiler)
             )
             for _ in range(n_pdf)
         ],
@@ -93,12 +95,12 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
         middle_tasks = [
             asyncio.create_task(
                 ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config,
-                                tracker=tracker)
+                                tracker=tracker, profiler=profiler)
             ),
             *[
                 asyncio.create_task(
                     llm_worker(text_q, result_q, llm_model, config,
-                               tracker=tracker)
+                               tracker=tracker, profiler=profiler)
                 )
                 for _ in range(n_llm)
             ],
@@ -107,7 +109,7 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
 
     output_task = asyncio.create_task(
         output_stage(result_q, config, run_id, total, n_result_sentinels, stats,
-                     tracker=tracker)
+                     tracker=tracker, profiler=profiler)
     );
 
     await asyncio.gather(*pdf_tasks, *middle_tasks, output_task);
@@ -196,6 +198,8 @@ def main() -> None:
 
     logger.info(f"Processing {len(patent_rows)} patents ...");
 
+    profiler = PipelineProfiler();
+
     tracker = StatusTracker(
         dashboard_dir=dashboard_dir,
         run_id=run_id,
@@ -208,11 +212,16 @@ def main() -> None:
                    patents_fetched=len(patent_rows),
                    elapsed_s=round(time.perf_counter() - t_start, 3));
 
-    stats = asyncio.run(run_pipeline(config, patent_rows, run_id, tracker=tracker));
+    stats = asyncio.run(run_pipeline(config, patent_rows, run_id, tracker=tracker, profiler=profiler));
     tracker.finish();
 
     elapsed = time.perf_counter() - t_start;
     logger.info(f"Pipeline complete in {elapsed:.1f}s.");
+
+    # Print and save profiling report
+    profiler.print_profile_report(elapsed);
+    profile_path = out_dir / f"profile_{fname}.json";
+    profiler.save_report(profile_path);
 
     if mode == "individual":
         patent_id = config["individual"]["patent_id"].replace("-", "");

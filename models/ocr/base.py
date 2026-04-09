@@ -35,6 +35,11 @@ class OCRModel(ABC):
         """Run OCR on one or more page images, return concatenated text."""
         ...
 
+    async def run_async(self, images: list[PILImage.Image]) -> OCRResult:
+        """Async version. Default falls back to sync run in a thread."""
+        import asyncio
+        return await asyncio.to_thread(self.run, images)
+
     @property
     @abstractmethod
     def model_name(self) -> str:

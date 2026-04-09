@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from models.llm.base import LLMResult
 from utils.logger import get_logger
+from utils.profiler import PipelineProfiler
 from utils.status_tracker import StatusTracker
 
 logger = get_logger("output_writer");
@@ -130,6 +131,7 @@ async def output_stage(
     n_upstream_sentinels: int,
     stats: dict,
     tracker: StatusTracker | None = None,
+    profiler: PipelineProfiler | None = None,
 ) -> None:
     """Single output-writer coroutine. Thread-safe because it's the only writer."""
     out_dir = Path(config["output"]["dir"]);
@@ -180,16 +182,29 @@ async def output_stage(
                 done_count += 1;
                 continue;
 
+            t_write0 = time.perf_counter();
             csv_row = _make_csv_row(item, config);
             writer.writerow(csv_row);
             csv_f.flush();
 
             meta_rec = _make_meta_record(item, config, run_id);
+            # Embed per-patent profile data in metadata
+            if profiler:
+                pub = str(item["row"].get("publication_number", ""));
+                profile_data = profiler.get_patent_profile(pub);
+                if profile_data:
+                    meta_rec["profile"] = profile_data;
+
             if is_individual:
                 meta_f.write(json.dumps(meta_rec, indent=2, ensure_ascii=False));
             else:
                 meta_f.write(json.dumps(meta_rec, ensure_ascii=False) + "\n");
             meta_f.flush();
+            write_s = time.perf_counter() - t_write0;
+
+            if profiler:
+                pub = str(item["row"].get("publication_number", ""));
+                profiler.record_output_done(pub, write_s);
 
             if item["llm_result"].found:
                 successes += 1;

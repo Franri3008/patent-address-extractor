@@ -8,6 +8,7 @@ Handles retries and propagates errors without crashing the pipeline.
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 from jinja2 import Template
@@ -15,6 +16,7 @@ from jinja2 import Template
 from models.llm.base import LLMModel, LLMResult
 from pipeline.vision_verifier import verify_with_vision
 from utils.logger import get_logger
+from utils.profiler import PipelineProfiler
 from utils.status_tracker import StatusTracker
 from utils.validators import run_all_validations
 from utils.wipo import extract_section_text, parse_known_names
@@ -34,6 +36,7 @@ async def llm_worker(
     llm_model: LLMModel,
     config: dict,
     tracker: StatusTracker | None = None,
+    profiler: PipelineProfiler | None = None,
 ) -> None:
     """
     Single LLM worker coroutine. Consumes from text_q,
@@ -60,6 +63,13 @@ async def llm_worker(
             tracker.update("llm_worker", status="running",
                            current_patent=pub_number,
                            queue_size=text_q.qsize());
+
+        # Record LLM queue wait time
+        if profiler:
+            enqueue_t = item.get("_enqueue_t")
+            if enqueue_t:
+                profiler.record_llm_start(pub_number, queue_wait_s=time.perf_counter() - enqueue_t);
+            profiler.llm_inflight_inc();
 
         # Trim to target sections to minimise token count.
         # When (72) is missing from OCR (e.g. two-column layout garbled by
@@ -112,6 +122,14 @@ async def llm_worker(
                             cost_usd=None, retries=attempt,
                             error=str(e),
                         );
+
+        # Record LLM profiling
+        if profiler and llm_result:
+            profiler.record_llm_done(
+                pub_number, llm_result.elapsed_s,
+                llm_result.tokens_in, llm_result.tokens_out,
+            );
+            profiler.llm_inflight_dec();
 
         rendered_prompt = Template(prompt_template).render(ocr_text=llm_input, **template_vars);
 
