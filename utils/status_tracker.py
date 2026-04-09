@@ -9,11 +9,13 @@ from PIL import Image as PILImage
 
 class StatusTracker:
     def __init__(self, dashboard_dir: Path, run_id: str, run_mode: str,
-                 pipeline_mode: int, total_patents: int):
+                 pipeline_mode: int, total_patents: int,
+                 broadcast_fn=None):
         self._dir = dashboard_dir
         self._pages_dir = dashboard_dir / "pages"
         self._pages_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self._broadcast_fn = broadcast_fn
 
         self.state: dict = {
             "run_id": run_id,
@@ -147,3 +149,5 @@ class StatusTracker:
         dst = self._dir / "status.json"
         tmp.write_text(json.dumps(self.state, ensure_ascii=False, default=str))
         tmp.rename(dst)
+        if self._broadcast_fn is not None:
+            self._broadcast_fn(self.state)

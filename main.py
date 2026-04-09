@@ -127,6 +127,8 @@ def main() -> None:
                         help="Override config pipeline_mode (0=OCR+LLM, 1=vision LLM).");
     parser.add_argument("--review", action="store_true",
                         help="Start the review server to build the ground-truth dataset.");
+    parser.add_argument("--viz", action="store_true",
+                        help="Open the live pipeline dashboard while the run executes.");
     parser.add_argument("--test", action="store_true",
                         help="Run regression tests against test/ground_truth.csv.");
     args = parser.parse_args();
@@ -165,6 +167,12 @@ def main() -> None:
     dashboard_dir = Path("dashboard");
     dashboard_dir.mkdir(parents=True, exist_ok=True);
 
+    _broadcast = None
+    if args.viz:
+        from viz_server import broadcast, start_viz_server
+        start_viz_server()
+        _broadcast = broadcast
+
     t_start = time.perf_counter();
     logger.info(f"Run started — mode={mode}, run_id={run_id}");
 
@@ -194,6 +202,7 @@ def main() -> None:
         run_mode=mode,
         pipeline_mode=config.get("pipeline_mode", 0),
         total_patents=len(patent_rows),
+        broadcast_fn=_broadcast,
     );
     tracker.update("bq_fetch", status="done",
                    patents_fetched=len(patent_rows),

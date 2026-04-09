@@ -1,17 +1,8 @@
-// Patent Pipeline Dashboard — polls status.json every second
+// Patent Pipeline Dashboard — live updates via SSE, polling fallback
 
 let lastComparison = null;
 
-async function tick() {
-  let data;
-  try {
-    const res = await fetch('status.json?' + Date.now());
-    if (!res.ok) return;
-    data = await res.json();
-  } catch {
-    return; // file not ready yet
-  }
-
+function applyState(data) {
   updateHeader(data);
   updateProgress(data);
   updateStage('bq_fetch', data.stages.bq_fetch);
@@ -26,6 +17,17 @@ async function tick() {
   if (data.latest_comparison && data.latest_comparison.patent_id) {
     lastComparison = data.latest_comparison;
     document.getElementById('btn-compare').disabled = false;
+  }
+}
+
+// Polling path (file:// or SSE unavailable)
+async function tick() {
+  try {
+    const res = await fetch('status.json?' + Date.now());
+    if (!res.ok) return;
+    applyState(await res.json());
+  } catch {
+    // file not ready yet
   }
 }
 
@@ -186,6 +188,20 @@ function truncate(str, len) {
   return str.length > len ? str.slice(0, len) + '…' : str;
 }
 
-// ── Start polling ───────────────────────────────────────
-tick();
-setInterval(tick, 1000);
+// ── Connect: SSE when served over HTTP, polling otherwise ──
+if (location.protocol === 'http:' || location.protocol === 'https:') {
+  const es = new EventSource('/api/status/stream');
+  es.onmessage = (e) => {
+    try { applyState(JSON.parse(e.data)); } catch {}
+  };
+  es.onerror = () => {
+    // SSE failed (server not up yet?) — fall back to polling
+    es.close();
+    tick();
+    setInterval(tick, 1000);
+  };
+} else {
+  // Opened as a local file — use polling
+  tick();
+  setInterval(tick, 1000);
+}
