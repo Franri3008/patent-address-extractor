@@ -2,6 +2,49 @@
 
 let lastComparison = null;
 
+// ── Particle animation ───────────────────────────────────
+const STAGE_ORDER = ['bq_fetch', 'pdf_worker', 'ocr_worker', 'llm_worker', 'output_writer'];
+const STAGE_COLORS = {
+  bq_fetch: '#7c3aed',
+  pdf_worker: '#ea580c',
+  ocr_worker: '#0891b2',
+  llm_worker: '#1d6ef5',
+  output_writer: '#16a34a',
+};
+const _stageStates = {};
+
+function animateParticle(fromId, toId) {
+  const fromEl = document.getElementById('stage-' + fromId);
+  const toEl = document.getElementById('stage-' + toId);
+  const particle = document.getElementById('particle');
+  const pipeline = document.querySelector('.pipeline');
+  if (!fromEl || !toEl || !particle || !pipeline) return;
+
+  const pipelineRect = pipeline.getBoundingClientRect();
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+
+  const fromX = fromRect.left + fromRect.width / 2 - pipelineRect.left;
+  const fromY = fromRect.top + fromRect.height / 2 - pipelineRect.top;
+  const toX = toRect.left + toRect.width / 2 - pipelineRect.left;
+  const toY = toRect.top + toRect.height / 2 - pipelineRect.top;
+
+  const color = STAGE_COLORS[toId] || '#1d6ef5';
+  particle.style.background = color;
+  particle.style.boxShadow = `0 0 10px 3px ${color}88`;
+  particle.style.transition = 'none';
+  particle.style.transform = `translate(${fromX}px, ${fromY}px)`;
+  particle.style.opacity = '1';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      particle.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease 0.45s';
+      particle.style.transform = `translate(${toX}px, ${toY}px)`;
+      particle.style.opacity = '0';
+    });
+  });
+}
+
 function applyState(data) {
   updateHeader(data);
   updateProgress(data);
@@ -54,6 +97,15 @@ function updateProgress(data) {
 function updateStage(id, stage) {
   const el = document.getElementById('stage-' + id);
   const badge = document.getElementById('badge-' + id);
+
+  const prev = _stageStates[id];
+  _stageStates[id] = stage.status;
+
+  // Animate particle when a stage becomes active (transitions to running)
+  if (prev !== 'running' && stage.status === 'running') {
+    const idx = STAGE_ORDER.indexOf(id);
+    if (idx > 0) animateParticle(STAGE_ORDER[idx - 1], id);
+  }
 
   el.classList.remove('active', 'done');
   if (stage.status === 'running') el.classList.add('active');

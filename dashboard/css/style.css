@@ -89,7 +89,7 @@ header h1 {
 }
 
 .elapsed {
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--blue);
@@ -124,7 +124,7 @@ header h1 {
 }
 
 .progress-label {
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-mid);
@@ -143,12 +143,14 @@ header h1 {
   display: flex;
   align-items: stretch;
   overflow: visible;
+  position: relative;
 }
 
 /* ── Stage card ──────────────────────────────────────── */
 .stage {
   flex: 1;
   min-width: 0;
+  height: 172px;
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-top: 3px solid var(--border);
@@ -183,27 +185,12 @@ header h1 {
   transition: opacity 0.25s, background 0.25s, border-color 0.25s;
 }
 
-/* Running: blue */
-.stage.active {
-  border-top-color: var(--blue);
-  border-color: #c3d6fd;
-  background: var(--blue-light);
-}
-
+/* Running: active (color set per-stage via data-stage rules below) */
 .stage.active .stage-head,
 .stage.active .stage-body,
 .stage.active .stage-current,
 .stage.active .stage-fab {
   opacity: 1;
-}
-
-.stage.active .stage-fab {
-  background: var(--blue-light);
-  border-color: var(--blue-mid);
-}
-
-.stage.active .fab-count {
-  background: var(--blue);
 }
 
 /* Done: green */
@@ -227,6 +214,66 @@ header h1 {
 
 .stage.done .fab-count {
   background: var(--green);
+}
+
+/* ── Per-stage accent colors (active state) ──────────── */
+
+/* BQ: purple */
+[data-stage="bq_fetch"].active { border-top-color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
+[data-stage="bq_fetch"].active .stage-status { color: #7c3aed; }
+[data-stage="bq_fetch"].active .step-num { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+[data-stage="bq_fetch"].active .stage-fab { background: #f5f3ff; border-color: #a78bfa; }
+[data-stage="bq_fetch"].active .fab-count { background: #7c3aed; }
+[data-stage="bq_fetch"].active .stage-current { border-top-color: #ddd6fe; color: #7c3aed; }
+
+/* PDF: orange */
+[data-stage="pdf_worker"].active { border-top-color: #ea580c; border-color: #fed7aa; background: #fff7ed; }
+[data-stage="pdf_worker"].active .stage-status { color: #ea580c; }
+[data-stage="pdf_worker"].active .step-num { background: #ea580c; border-color: #ea580c; color: #fff; }
+[data-stage="pdf_worker"].active .stage-fab { background: #fff7ed; border-color: #fdba74; }
+[data-stage="pdf_worker"].active .fab-count { background: #ea580c; }
+[data-stage="pdf_worker"].active .stage-current { border-top-color: #fed7aa; color: #ea580c; }
+
+/* OCR: teal */
+[data-stage="ocr_worker"].active { border-top-color: #0891b2; border-color: #a5f3fc; background: #ecfeff; }
+[data-stage="ocr_worker"].active .stage-status { color: #0891b2; }
+[data-stage="ocr_worker"].active .step-num { background: #0891b2; border-color: #0891b2; color: #fff; }
+[data-stage="ocr_worker"].active .stage-fab { background: #ecfeff; border-color: #67e8f9; }
+[data-stage="ocr_worker"].active .fab-count { background: #0891b2; }
+[data-stage="ocr_worker"].active .stage-current { border-top-color: #a5f3fc; color: #0891b2; }
+
+/* LLM: blue (already default, keep) */
+[data-stage="llm_worker"].active { border-top-color: var(--blue); border-color: #c3d6fd; background: var(--blue-light); }
+[data-stage="llm_worker"].active .stage-status { color: var(--blue); }
+[data-stage="llm_worker"].active .step-num { background: var(--blue); border-color: var(--blue); color: #fff; }
+[data-stage="llm_worker"].active .stage-fab { background: var(--blue-light); border-color: var(--blue-mid); }
+[data-stage="llm_worker"].active .fab-count { background: var(--blue); }
+[data-stage="llm_worker"].active .stage-current { border-top-color: #c8d9fd; color: var(--blue); }
+
+/* Output: green (already default done color, reuse for active) */
+[data-stage="output_writer"].active { border-top-color: var(--green); border-color: #bbf7d0; background: var(--green-light); }
+[data-stage="output_writer"].active .stage-status { color: var(--green); }
+[data-stage="output_writer"].active .step-num { background: var(--green); border-color: var(--green); color: #fff; }
+[data-stage="output_writer"].active .stage-fab { background: var(--green-light); border-color: #86efac; }
+[data-stage="output_writer"].active .fab-count { background: var(--green); }
+[data-stage="output_writer"].active .stage-current { border-top-color: #bbf7d0; color: var(--green); }
+
+/* ── Traveling particle ───────────────────────────────── */
+.particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 8px 2px rgba(29, 110, 245, 0.5);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 10;
+  transform: translate(0, 0);
+  margin-left: -7px;
+  margin-top: -7px;
 }
 
 /* ── Stage head ──────────────────────────────────────── */

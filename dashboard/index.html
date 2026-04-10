@@ -11,12 +11,6 @@
 <body>
   <div class="page">
 
-    <!-- Tab bar -->
-    <nav class="tab-bar">
-      <button class="tab-btn active" data-tab="pipeline">Pipeline</button>
-      <button class="tab-btn" data-tab="review">Review</button>
-    </nav>
-
     <div id="tab-pipeline">
 
       <!-- Header -->
@@ -41,8 +35,11 @@
       <div class="pipeline-wrap">
         <div class="pipeline">
 
+          <!-- Particle that travels between stages -->
+          <div class="particle" id="particle"></div>
+
           <!-- 1. BigQuery -->
-          <div class="stage" id="stage-bq_fetch">
+          <div class="stage" id="stage-bq_fetch" data-stage="bq_fetch">
             <div class="stage-head">
               <span class="step-num">1</span>
               <div>
@@ -72,7 +69,7 @@
             </svg></div>
 
           <!-- 2. PDF -->
-          <div class="stage" id="stage-pdf_worker">
+          <div class="stage" id="stage-pdf_worker" data-stage="pdf_worker">
             <div class="stage-head">
               <span class="step-num">2</span>
               <div>
@@ -107,7 +104,7 @@
             </svg></div>
 
           <!-- 3. OCR -->
-          <div class="stage" id="stage-ocr_worker">
+          <div class="stage" id="stage-ocr_worker" data-stage="ocr_worker">
             <div class="stage-head">
               <span class="step-num">3</span>
               <div>
@@ -142,7 +139,7 @@
             </svg></div>
 
           <!-- 4. LLM -->
-          <div class="stage" id="stage-llm_worker">
+          <div class="stage" id="stage-llm_worker" data-stage="llm_worker">
             <div class="stage-head">
               <span class="step-num">4</span>
               <div>
@@ -177,7 +174,7 @@
             </svg></div>
 
           <!-- 5. Output -->
-          <div class="stage" id="stage-output_writer">
+          <div class="stage" id="stage-output_writer" data-stage="output_writer">
             <div class="stage-head">
               <span class="step-num">5</span>
               <div>
@@ -226,79 +223,6 @@
 
     </div><!-- /#tab-pipeline -->
 
-    <!-- ══════════════════════════════ REVIEW TAB ════════════════════════════ -->
-    <div id="tab-review" hidden>
-
-      <div class="review-layout">
-
-        <!-- Left: patent list -->
-        <div class="review-list-col">
-          <div class="review-list-header">
-            <span class="review-list-title">Patents</span>
-            <span id="review-count" class="review-count-pill">—</span>
-          </div>
-          <div id="review-list" class="review-list">
-            <div class="review-empty">Loading patents…</div>
-          </div>
-        </div>
-
-        <!-- Right: viewer -->
-        <div class="review-viewer" id="review-viewer">
-
-          <div class="review-viewer-empty" id="review-viewer-empty">
-            <span>Select a patent from the list</span>
-          </div>
-
-          <div class="review-viewer-content" id="review-viewer-content" hidden>
-
-            <!-- Viewer header -->
-            <div class="review-viewer-header">
-              <span class="review-patent-id" id="rv-patent-id">—</span>
-              <span class="review-meta" id="rv-meta">—</span>
-              <div class="review-verdict" id="rv-verdict"></div>
-            </div>
-
-            <!-- Split: images | json -->
-            <div class="review-split">
-
-              <!-- Images pane -->
-              <div class="review-images-pane">
-                <div class="pane-label">PDF Pages</div>
-                <div class="review-zoom-wrap" id="rv-zoom-wrap">
-                  <div class="review-zoom-inner" id="rv-zoom-inner">
-                    <!-- images injected here -->
-                  </div>
-                </div>
-                <div class="review-no-images" id="rv-no-images">
-                  <span>No page images available for this patent.<br>
-                    Re-run with <code>save_thumbnails: true</code> to capture them.</span>
-                </div>
-              </div>
-
-              <div class="review-pane-divider"></div>
-
-              <!-- JSON pane -->
-              <div class="review-json-pane">
-                <div class="pane-label">Extracted Addresses</div>
-                <pre class="review-json" id="rv-json"></pre>
-              </div>
-
-            </div><!-- /.review-split -->
-
-            <!-- Vote bar -->
-            <div class="review-vote-bar">
-              <button class="btn-correct" id="btn-correct">✓ Correct</button>
-              <button class="btn-wrong" id="btn-wrong">✗ Wrong</button>
-              <span class="vote-saved-msg" id="vote-saved-msg"></span>
-            </div>
-
-          </div><!-- /#review-viewer-content -->
-        </div><!-- /.review-viewer -->
-
-      </div><!-- /.review-layout -->
-
-    </div><!-- /#tab-review -->
-
   </div><!-- /.page -->
 
   <!-- Comparison Modal -->
@@ -322,40 +246,6 @@
   </div>
 
   <script src="js/app.js"></script>
-  <script src="js/review.js"></script>
-  <script>
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const tab = btn.dataset.tab;
-        document.getElementById('tab-pipeline').hidden = tab !== 'pipeline';
-        document.getElementById('tab-review').hidden = tab !== 'review';
-        if (tab === 'review') loadReviewTab();
-      });
-    });
-
-    // Hide the nav and show only the relevant tab based on server mode.
-    // Falls back gracefully when opened as a local file (no server).
-    (async () => {
-      try {
-        const res = await fetch('/api/mode');
-        if (!res.ok) return;
-        const { mode } = await res.json();
-        if (mode === 'viz') {
-          document.querySelector('.tab-bar').hidden = true;
-          document.getElementById('tab-pipeline').hidden = false;
-          document.getElementById('tab-review').hidden = true;
-        } else if (mode === 'review') {
-          document.querySelector('.tab-bar').hidden = true;
-          document.getElementById('tab-pipeline').hidden = true;
-          document.getElementById('tab-review').hidden = false;
-          loadReviewTab();
-        }
-      } catch { /* file:// or server not up — keep both tabs visible */ }
-    })();
-  </script>
 </body>
 
 </html>
