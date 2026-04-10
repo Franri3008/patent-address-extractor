@@ -24,25 +24,23 @@ function animateParticle(fromId, toId) {
   const fromRect = fromEl.getBoundingClientRect();
   const toRect = toEl.getBoundingClientRect();
 
-  const fromX = fromRect.left + fromRect.width / 2 - pipelineRect.left;
-  const fromY = fromRect.top + fromRect.height / 2 - pipelineRect.top;
-  const toX = toRect.left + toRect.width / 2 - pipelineRect.left;
-  const toY = toRect.top + toRect.height / 2 - pipelineRect.top;
+  // Center of each stage relative to the pipeline's top-left,
+  // minus 10px (half of 20px icon) so the icon is centered on that point.
+  const fromX = fromRect.left + fromRect.width / 2 - pipelineRect.left - 10;
+  const fromY = fromRect.top + fromRect.height / 2 - pipelineRect.top - 10;
+  const toX = toRect.left + toRect.width / 2 - pipelineRect.left - 10;
+  const toY = toRect.top + toRect.height / 2 - pipelineRect.top - 10;
 
-  const color = STAGE_COLORS[toId] || '#1d6ef5';
-  particle.style.background = color;
-  particle.style.boxShadow = `0 0 10px 3px ${color}88`;
+  particle.textContent = '📄';
   particle.style.transition = 'none';
   particle.style.transform = `translate(${fromX}px, ${fromY}px)`;
   particle.style.opacity = '1';
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      particle.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease 0.45s';
-      particle.style.transform = `translate(${toX}px, ${toY}px)`;
-      particle.style.opacity = '0';
-    });
-  });
+  setTimeout(() => {
+    particle.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease 0.5s';
+    particle.style.transform = `translate(${toX}px, ${toY}px)`;
+    particle.style.opacity = '0';
+  }, 30);
 }
 
 function applyState(data) {

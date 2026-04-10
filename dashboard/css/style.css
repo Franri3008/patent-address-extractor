@@ -185,7 +185,7 @@ header h1 {
   transition: opacity 0.25s, background 0.25s, border-color 0.25s;
 }
 
-/* Running: active (color set per-stage via data-stage rules below) */
+/* Running */
 .stage.active .stage-head,
 .stage.active .stage-body,
 .stage.active .stage-current,
@@ -216,64 +216,46 @@ header h1 {
   background: var(--green);
 }
 
-/* ── Per-stage accent colors (active state) ──────────── */
+/* ── Per-stage title colors (always visible, dimmed when pending) ── */
+[data-stage="bq_fetch"] .stage-name     { color: #7c3aed; }
+[data-stage="pdf_worker"] .stage-name   { color: #ea580c; }
+[data-stage="ocr_worker"] .stage-name   { color: #0891b2; }
+[data-stage="llm_worker"] .stage-name   { color: var(--blue); }
+[data-stage="output_writer"] .stage-name{ color: var(--green); }
 
-/* BQ: purple */
-[data-stage="bq_fetch"].active { border-top-color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
-[data-stage="bq_fetch"].active .stage-status { color: #7c3aed; }
-[data-stage="bq_fetch"].active .step-num { background: #7c3aed; border-color: #7c3aed; color: #fff; }
-[data-stage="bq_fetch"].active .stage-fab { background: #f5f3ff; border-color: #a78bfa; }
-[data-stage="bq_fetch"].active .fab-count { background: #7c3aed; }
-[data-stage="bq_fetch"].active .stage-current { border-top-color: #ddd6fe; color: #7c3aed; }
+/* Active: step-num matches stage color */
+[data-stage="bq_fetch"].active .step-num     { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+[data-stage="pdf_worker"].active .step-num   { background: #ea580c; border-color: #ea580c; color: #fff; }
+[data-stage="ocr_worker"].active .step-num   { background: #0891b2; border-color: #0891b2; color: #fff; }
+[data-stage="llm_worker"].active .step-num   { background: var(--blue); border-color: var(--blue); color: #fff; }
+[data-stage="output_writer"].active .step-num{ background: var(--green); border-color: var(--green); color: #fff; }
 
-/* PDF: orange */
-[data-stage="pdf_worker"].active { border-top-color: #ea580c; border-color: #fed7aa; background: #fff7ed; }
-[data-stage="pdf_worker"].active .stage-status { color: #ea580c; }
-[data-stage="pdf_worker"].active .step-num { background: #ea580c; border-color: #ea580c; color: #fff; }
-[data-stage="pdf_worker"].active .stage-fab { background: #fff7ed; border-color: #fdba74; }
-[data-stage="pdf_worker"].active .fab-count { background: #ea580c; }
-[data-stage="pdf_worker"].active .stage-current { border-top-color: #fed7aa; color: #ea580c; }
+/* Running: blue border (semantic, same for all stages) */
+.stage.active {
+  border-top-color: var(--blue);
+  border-color: #c3d6fd;
+  background: var(--blue-light);
+}
 
-/* OCR: teal */
-[data-stage="ocr_worker"].active { border-top-color: #0891b2; border-color: #a5f3fc; background: #ecfeff; }
-[data-stage="ocr_worker"].active .stage-status { color: #0891b2; }
-[data-stage="ocr_worker"].active .step-num { background: #0891b2; border-color: #0891b2; color: #fff; }
-[data-stage="ocr_worker"].active .stage-fab { background: #ecfeff; border-color: #67e8f9; }
-[data-stage="ocr_worker"].active .fab-count { background: #0891b2; }
-[data-stage="ocr_worker"].active .stage-current { border-top-color: #a5f3fc; color: #0891b2; }
-
-/* LLM: blue (already default, keep) */
-[data-stage="llm_worker"].active { border-top-color: var(--blue); border-color: #c3d6fd; background: var(--blue-light); }
-[data-stage="llm_worker"].active .stage-status { color: var(--blue); }
-[data-stage="llm_worker"].active .step-num { background: var(--blue); border-color: var(--blue); color: #fff; }
-[data-stage="llm_worker"].active .stage-fab { background: var(--blue-light); border-color: var(--blue-mid); }
-[data-stage="llm_worker"].active .fab-count { background: var(--blue); }
-[data-stage="llm_worker"].active .stage-current { border-top-color: #c8d9fd; color: var(--blue); }
-
-/* Output: green (already default done color, reuse for active) */
-[data-stage="output_writer"].active { border-top-color: var(--green); border-color: #bbf7d0; background: var(--green-light); }
-[data-stage="output_writer"].active .stage-status { color: var(--green); }
-[data-stage="output_writer"].active .step-num { background: var(--green); border-color: var(--green); color: #fff; }
-[data-stage="output_writer"].active .stage-fab { background: var(--green-light); border-color: #86efac; }
-[data-stage="output_writer"].active .fab-count { background: var(--green); }
-[data-stage="output_writer"].active .stage-current { border-top-color: #bbf7d0; color: var(--green); }
+.stage.active .stage-status { color: var(--blue); }
+.stage.active .stage-fab { background: var(--blue-light); border-color: var(--blue-mid); }
+.stage.active .fab-count { background: var(--blue); }
 
 /* ── Traveling particle ───────────────────────────────── */
 .particle {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--blue);
-  box-shadow: 0 0 8px 2px rgba(29, 110, 245, 0.5);
+  top: -10px;
+  left: -10px;
+  width: 20px;
+  height: 20px;
   pointer-events: none;
   opacity: 0;
-  z-index: 10;
-  transform: translate(0, 0);
-  margin-left: -7px;
-  margin-top: -7px;
+  z-index: 20;
+  font-size: 18px;
+  line-height: 20px;
+  text-align: center;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+  will-change: transform, opacity;
 }
 
 /* ── Stage head ──────────────────────────────────────── */
@@ -360,6 +342,14 @@ header h1 {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
+}
+
+/* OCR sections: reduce size significantly */
+#ocr-sections {
+  font-size: 8px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1px;
 }
 
 .sl {

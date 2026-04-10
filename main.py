@@ -57,30 +57,29 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
         for _ in range(n_pdf):
             await patent_q.put(None);
 
-    pdf_tasks = [
-        asyncio.create_task(_feed()),
-        *[
-            asyncio.create_task(
+    async def _run_pdf() -> None:
+        await asyncio.gather(
+            _feed(),
+            *[
                 pdf_worker(patent_q, image_q, config, n_sentinels_to_emit=1,
                            tracker=tracker, profiler=profiler)
-            )
-            for _ in range(n_pdf)
-        ],
-    ];
+                for _ in range(n_pdf)
+            ],
+        );
+        if tracker:
+            tracker.update("pdf_worker", status="done", current_patent="");
 
     if pipeline_mode == 1:
         logger.info(f"pipeline_mode=1: loading vision LLM: {config['vision_llm']['provider']}/{config['vision_llm']['model']} ...");
         vision_model = get_vision_llm_model(config);
 
-        middle_tasks = [
-            asyncio.create_task(
-                vision_llm_worker(
-                    image_q, result_q, vision_model, config,
-                    n_upstream_sentinels=n_pdf,
-                    n_downstream_sentinels=n_llm,
-                )
-            )
-        ];
+        async def _run_middle() -> None:
+            await vision_llm_worker(
+                image_q, result_q, vision_model, config,
+                n_upstream_sentinels=n_pdf,
+                n_downstream_sentinels=n_llm,
+            );
+
         n_result_sentinels = n_llm;
     else:
         text_q: asyncio.Queue = asyncio.Queue(maxsize=q_size);
@@ -92,27 +91,37 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
         logger.info(f"Loading LLM: {config['llm']['provider']}/{config['llm']['model']} ...");
         llm_model = get_llm_model(config);
 
-        middle_tasks = [
-            asyncio.create_task(
-                ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config,
-                                tracker=tracker, profiler=profiler)
-            ),
-            *[
-                asyncio.create_task(
-                    llm_worker(text_q, result_q, llm_model, config,
-                               tracker=tracker, profiler=profiler)
-                )
+        async def _run_ocr() -> None:
+            await ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config,
+                                  tracker=tracker, profiler=profiler);
+            if tracker:
+                tracker.update("ocr_worker", status="done", current_patent="");
+
+        async def _run_llm() -> None:
+            await asyncio.gather(*[
+                llm_worker(text_q, result_q, llm_model, config,
+                           tracker=tracker, profiler=profiler)
                 for _ in range(n_llm)
-            ],
-        ];
+            ]);
+            if tracker:
+                tracker.update("llm_worker", status="done", current_patent="");
+
+        async def _run_middle() -> None:
+            await asyncio.gather(_run_ocr(), _run_llm());
+
         n_result_sentinels = n_llm;
 
-    output_task = asyncio.create_task(
-        output_stage(result_q, config, run_id, total, n_result_sentinels, stats,
-                     tracker=tracker, profiler=profiler)
-    );
+    async def _run_output() -> None:
+        await output_stage(result_q, config, run_id, total, n_result_sentinels, stats,
+                           tracker=tracker, profiler=profiler);
+        if tracker:
+            tracker.update("output_writer", status="done");
 
-    await asyncio.gather(*pdf_tasks, *middle_tasks, output_task);
+    await asyncio.gather(
+        asyncio.create_task(_run_pdf()),
+        asyncio.create_task(_run_middle()),
+        asyncio.create_task(_run_output()),
+    );
     return stats;
 
 
