@@ -104,6 +104,23 @@ def _scan_individual() -> list[dict]:
         except Exception:
             llm_output = {"raw": llm_raw}
 
+        # Denormalize address_id references from the new schema format
+        # (addresses array + entities with address_id) into inline addresses.
+        if "addresses" in llm_output and "entities" in llm_output:
+            addr_map = {a["id"]: a["address"] for a in llm_output.get("addresses", [])}
+            entities = llm_output.get("entities", {})
+            def _resolve(entity_list: list) -> list:
+                return [
+                    {"name": e["name"], "address": addr_map.get(e.get("address_id"))}
+                    for e in entity_list
+                ]
+            llm_output = {
+                "inventors": _resolve(entities.get("inventors", [])),
+                "applicants": _resolve(entities.get("applicants", [])),
+                "agents": _resolve(entities.get("agents", [])),
+                "found": llm_output.get("found", False),
+            }
+
         if llm_result:
             llm_output.setdefault("found", llm_result.get("found"))
             llm_output.setdefault("inventors_count", llm_result.get("inventors_count"))
