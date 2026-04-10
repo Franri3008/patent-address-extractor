@@ -3,7 +3,6 @@ You are extracting structured address information from OCR text of a WIPO PCT pa
 The patent uses standard WIPO section numbering (sections are usually in increasing order, but not always):
   - (71) = Applicant(s)  — company or individual + address
   - (72) = Inventor(s)   — format: "LASTNAME, Firstname; street, city, region (CC)."
-  - (74) = Agent / Law firm — name + address
 
 Important rules:
   1. Extract addresses EXACTLY as they appear in the text. Do NOT translate, infer, normalise, or reformat.
@@ -23,21 +22,20 @@ Known entities from the patent registry (use these to ensure all are included in
   If an entity from this list appears in the text (even with slight OCR misspellings), include it. Set "address" to null if no address is found for it.
 {% endif %}
 
+Return this exact JSON structure. Deduplicate addresses: assign each unique address an integer id, list all addresses in the "addresses" array, and reference them by address_id in entities. If two entities share the exact same address, they must reference the same id.
+{
+  "addresses": [
+    {"id": 1, "address": x},
+    {"id": 2, "address": y}
+  ],
+  "entities": {
+    "inventors":  [{"name": "...", "address_id": x}],
+    "applicants": [{"name": "...", "address_id": y}]
+  },
+  "found": true
+}
+
 OCR TEXT (may span multiple pages, from a two-column layout):
 ---
 {{ ocr_text }}
 ---
-
-Return this exact JSON structure. Deduplicate addresses: assign each unique address an integer id, list all addresses in the "addresses" array, and reference them by address_id in entities. If two entities share the same address, they must reference the same id.
-{
-  "addresses": [
-    {"id": 1, "address": "650 Anlaby Road, Kingston Upon Hull Yorkshire HU3 6UU (GB)"},
-    {"id": 2, "address": null}
-  ],
-  "entities": {
-    "inventors":  [{"name": "RYAN, David", "address_id": 1}],
-    "applicants": [{"name": "HABITAT AQUATICS LTD", "address_id": 1}],
-    "agents":     [{"name": "Some Agent", "address_id": 2}]
-  },
-  "found": true
-}

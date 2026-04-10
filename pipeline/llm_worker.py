@@ -77,11 +77,10 @@ async def llm_worker(
         # extraction from whatever context is available.
         sec71 = extract_section_text(ocr_text, 71);
         sec72 = extract_section_text(ocr_text, 72);
-        sec74 = extract_section_text(ocr_text, 74);
 
         if sec72:
             # Happy path: we have (72), trim aggressively.
-            llm_input = "\n\n".join(filter(None, [sec71, sec72, sec74]));
+            llm_input = "\n\n".join(filter(None, [sec71, sec72]));
         else:
             # (72) missing from OCR — send full text so the LLM has maximum
             # context (covers garbled column reads, truncated output, etc.).
