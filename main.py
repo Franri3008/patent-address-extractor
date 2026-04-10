@@ -208,12 +208,25 @@ def main() -> None:
     t_start = time.perf_counter();
     logger.info(f"Run started — mode={mode}, run_id={run_id}");
 
+    # Create tracker early so BQ fetch shows as "running" in the dashboard
+    profiler = PipelineProfiler();
+    tracker = StatusTracker(
+        dashboard_dir=dashboard_dir,
+        run_id=run_id,
+        run_mode=mode,
+        pipeline_mode=config.get("pipeline_mode", 0),
+        total_patents=0,
+        broadcast_fn=_broadcast,
+    );
+
     if mode == "individual":
         patent_id = config["individual"]["patent_id"];
         logger.info(f"Individual mode — patent: {patent_id}");
+        tracker.update("bq_fetch", status="running");
         patent_rows = [{"publication_number": patent_id.replace("-", "")}];
     else:
         raw_csv = out_dir / f"raw_{fname}.csv";
+        tracker.update("bq_fetch", status="running");
         if raw_csv.exists():
             import pandas as pd
             logger.info(f"Loading cached BigQuery results from {raw_csv}");
@@ -228,16 +241,7 @@ def main() -> None:
 
     logger.info(f"Processing {len(patent_rows)} patents ...");
 
-    profiler = PipelineProfiler();
-
-    tracker = StatusTracker(
-        dashboard_dir=dashboard_dir,
-        run_id=run_id,
-        run_mode=mode,
-        pipeline_mode=config.get("pipeline_mode", 0),
-        total_patents=len(patent_rows),
-        broadcast_fn=_broadcast,
-    );
+    tracker.state["total_patents"] = len(patent_rows);
     tracker.update("bq_fetch", status="done",
                    patents_fetched=len(patent_rows),
                    elapsed_s=round(time.perf_counter() - t_start, 3));
