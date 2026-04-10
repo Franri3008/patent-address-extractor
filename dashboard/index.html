@@ -223,6 +223,56 @@
 
     </div><!-- /#tab-pipeline -->
 
+    <div id="tab-review" hidden>
+      <div class="review-layout">
+        <!-- Patent list -->
+        <div class="review-list-col">
+          <div class="review-list-header">
+            <span class="review-list-title">Patents</span>
+            <span id="review-count" class="review-count-pill">0</span>
+          </div>
+          <div id="review-list" class="review-list"></div>
+        </div>
+
+        <!-- Viewer -->
+        <div class="review-viewer">
+          <div id="review-viewer-empty" class="review-viewer-empty">
+            Select a patent from the list to review it.
+          </div>
+          <div id="review-viewer-content" class="review-viewer-content" hidden>
+            <div class="review-viewer-header">
+              <div>
+                <div id="rv-patent-id" class="review-patent-id">—</div>
+                <div id="rv-meta" class="review-meta"></div>
+              </div>
+              <span id="rv-verdict" class="review-verdict" hidden></span>
+            </div>
+
+            <div class="review-split">
+              <div class="review-images-pane">
+                <div id="rv-zoom-wrap" class="review-zoom-wrap">
+                  <div id="rv-zoom-inner" class="review-zoom-inner"></div>
+                </div>
+                <div id="rv-no-images" class="review-no-images">
+                  No images available for this patent.
+                </div>
+              </div>
+              <div class="review-pane-divider"></div>
+              <div class="review-json-pane">
+                <pre id="rv-json" class="review-json"></pre>
+              </div>
+            </div>
+
+            <div class="review-vote-bar">
+              <button id="btn-correct" class="btn-vote btn-correct">✓ Correct</button>
+              <button id="btn-wrong" class="btn-vote btn-wrong">✗ Wrong</button>
+              <span id="vote-saved-msg" class="vote-saved-msg"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /#tab-review -->
+
   </div><!-- /.page -->
 
   <!-- Comparison Modal -->
@@ -246,6 +296,22 @@
   </div>
 
   <script src="js/app.js"></script>
+  <script src="js/review.js"></script>
+  <script>
+    (async () => {
+      try {
+        const res = await fetch('/api/mode');
+        if (res.ok) {
+          const { mode } = await res.json();
+          if (mode === 'review') {
+            document.getElementById('tab-pipeline').hidden = true;
+            document.getElementById('tab-review').hidden = false;
+            loadReviewTab();
+          }
+        }
+      } catch (_) { /* stay on pipeline view */ }
+    })();
+  </script>
 </body>
 
 </html>
