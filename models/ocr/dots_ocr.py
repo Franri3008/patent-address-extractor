@@ -89,6 +89,26 @@ class DotsOCRModel(OCRModel):
 
         logger.info("dots.ocr-1.5 loaded.");
 
+    def unload(self) -> None:
+        """Delete model weights and free GPU memory."""
+        if self._model is not None:
+            device = next(self._model.parameters()).device;
+            del self._model;
+            self._model = None;
+            self._processor = None;
+            try:
+                import torch
+                if device.type == "cuda":
+                    torch.cuda.empty_cache();
+                    logger.info("dots.ocr-1.5 unloaded, CUDA cache cleared.");
+                elif device.type == "mps":
+                    torch.mps.empty_cache();
+                    logger.info("dots.ocr-1.5 unloaded, MPS cache cleared.");
+                else:
+                    logger.info("dots.ocr-1.5 unloaded.");
+            except Exception:
+                logger.info("dots.ocr-1.5 unloaded.");
+
     def run(self, images: list[PILImage.Image]) -> OCRResult:
         """Run OCR on a list of page images and return concatenated text."""
         if self._model is None:

@@ -40,6 +40,13 @@ class OCRModel(ABC):
         import asyncio
         return await asyncio.to_thread(self.run, images)
 
+    def unload(self) -> None:
+        """Release model weights and free GPU memory.
+
+        Called after all OCR work is complete so the LLM stage can use
+        the freed VRAM.  Default is a no-op; subclasses should override.
+        """
+
     @property
     @abstractmethod
     def model_name(self) -> str:

@@ -88,6 +88,27 @@ class PaddleOCRVLLMModel(OCRModel):
             f"vLLM client ready — server={self._base_url}, model={self._model_name}"
         )
 
+    def unload(self) -> None:
+        """Shut down the vLLM OCR server to free GPU memory for LLM inference."""
+        import subprocess
+        self._client = None
+        self._async_client = None
+        try:
+            result = subprocess.run(
+                ["pkill", "-f", f"vllm.*{self._model_name}"],
+                capture_output=True, timeout=10,
+            )
+            if result.returncode == 0:
+                logger.info(
+                    f"Stopped vLLM OCR server ({self._model_name}) — GPU memory freed for LLM."
+                )
+            else:
+                logger.info(
+                    f"No vLLM OCR server process found for {self._model_name} (may be external)."
+                )
+        except Exception as e:
+            logger.warning(f"Could not stop vLLM OCR server: {e}")
+
     def _build_messages(self, img: PILImage.Image) -> list[dict]:
         data_url = _image_to_data_url(img)
         return [

@@ -94,6 +94,9 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
         async def _run_ocr() -> None:
             await ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config,
                                   tracker=tracker, profiler=profiler);
+            keep_ocr = config.get("keep_ocr") or config.get("ocr", {}).get("keep_loaded", False);
+            if not keep_ocr:
+                ocr_model.unload();
             if tracker:
                 tracker.update("ocr_worker", status="done", current_patent="");
 
@@ -142,6 +145,9 @@ def main() -> None:
                         help="Open the live pipeline dashboard while the run executes.");
     parser.add_argument("--test", action="store_true",
                         help="Run regression tests against test/ground_truth.csv.");
+    parser.add_argument("--keep-ocr", action="store_true",
+                        help="Keep OCR model/server loaded after OCR stage finishes "
+                             "(default: unload to free GPU memory for LLM).");
     args = parser.parse_args();
 
     config = load_config(args.config);
@@ -160,6 +166,8 @@ def main() -> None:
         config["run_mode"] = args.mode;
     if args.pipeline_mode is not None:
         config["pipeline_mode"] = args.pipeline_mode;
+    if args.keep_ocr:
+        config["keep_ocr"] = True;
     if args.patent:
         config["run_mode"] = "individual";
         config.setdefault("individual", {})["patent_id"] = args.patent;
