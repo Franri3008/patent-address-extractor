@@ -112,11 +112,11 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
         record["validation_warnings"] = validation_warnings;
 
     record["llm_prompt"] = item.get("llm_prompt", "");
+    record["llm_raw_response"] = llm.raw_response;
 
     if config["run_mode"] == "individual":
         record["thumbnail_paths"] = pdf_meta.get("thumbnail_paths", []);
         record["ocr_full_text"] = item.get("ocr_text", "");
-        record["llm_raw_response"] = llm.raw_response;
 
     return record;
 

@@ -104,23 +104,6 @@ def _scan_individual() -> list[dict]:
         except Exception:
             llm_output = {"raw": llm_raw}
 
-        # Denormalize address_id references from the new schema format
-        # (addresses array + entities with address_id) into inline addresses.
-        if "addresses" in llm_output and "entities" in llm_output:
-            addr_map = {a["id"]: a["address"] for a in llm_output.get("addresses", [])}
-            entities = llm_output.get("entities", {})
-            def _resolve(entity_list: list) -> list:
-                return [
-                    {"name": e["name"], "address": addr_map.get(e.get("address_id"))}
-                    for e in entity_list
-                ]
-            llm_output = {
-                "inventors": _resolve(entities.get("inventors", [])),
-                "applicants": _resolve(entities.get("applicants", [])),
-                "agents": _resolve(entities.get("agents", [])),
-                "found": llm_output.get("found", False),
-            }
-
         if llm_result:
             llm_output.setdefault("found", llm_result.get("found"))
             llm_output.setdefault("inventors_count", llm_result.get("inventors_count"))
@@ -184,6 +167,26 @@ def _guess_language(meta: dict) -> str:
     return ""
 
 
+def _load_jsonl_raw_responses() -> dict[str, str]:
+    """Load llm_raw_response from JSONL metadata files, keyed by patent_id (no dashes)."""
+    raw_map: dict[str, str] = {}
+    for jsonl_path in sorted(OUTPUT_DIR.glob("metadata_*.jsonl")):
+        try:
+            with open(jsonl_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    rec = json.loads(line)
+                    pid = rec.get("patent_id", "").replace("-", "")
+                    raw = rec.get("llm_raw_response")
+                    if pid and raw:
+                        raw_map[pid] = raw
+        except Exception:
+            continue
+    return raw_map
+
+
 def _scan_batch_csv() -> list[dict]:
     patents = []
     existing_ids: set[str] = set()
@@ -192,6 +195,8 @@ def _scan_batch_csv() -> list[dict]:
         for d in INDIVIDUAL_DIR.iterdir():
             if d.is_dir():
                 existing_ids.add(d.name.replace("-", ""))
+
+    raw_map = _load_jsonl_raw_responses()
 
     for csv_path in sorted(OUTPUT_DIR.glob("*.csv")):
         if csv_path.stem.startswith("raw_"):
@@ -205,19 +210,29 @@ def _scan_batch_csv() -> list[dict]:
                         continue
                     existing_ids.add(pid)
 
+                    # Prefer raw LLM response from JSONL metadata (new format)
                     llm_output: dict = {}
-                    inv_json = row.get("inventors_with_address", "")
-                    app_json = row.get("applicants_with_address", "")
-                    try:
-                        llm_output["inventors"] = json.loads(inv_json) if inv_json else []
-                    except Exception:
-                        llm_output["inventors"] = []
-                    try:
-                        llm_output["applicants"] = json.loads(app_json) if app_json else []
-                    except Exception:
-                        llm_output["applicants"] = []
-                    llm_output["found"] = row.get("addresses_found", "").lower() == "true"
-                    llm_output["sections_detected"] = row.get("sections_found", "").split() if row.get("sections_found") else []
+                    raw = raw_map.get(pid)
+                    if raw:
+                        try:
+                            llm_output = json.loads(raw)
+                        except Exception:
+                            raw = None
+
+                    # Fallback: reconstruct from denormalized CSV columns
+                    if not raw:
+                        inv_json = row.get("inventors_with_address", "")
+                        app_json = row.get("applicants_with_address", "")
+                        try:
+                            llm_output["inventors"] = json.loads(inv_json) if inv_json else []
+                        except Exception:
+                            llm_output["inventors"] = []
+                        try:
+                            llm_output["applicants"] = json.loads(app_json) if app_json else []
+                        except Exception:
+                            llm_output["applicants"] = []
+                        llm_output["found"] = row.get("addresses_found", "").lower() == "true"
+                        llm_output["sections_detected"] = row.get("sections_found", "").split() if row.get("sections_found") else []
 
                     thumb_info = _find_thumbnails(pid)
                     patents.append({
