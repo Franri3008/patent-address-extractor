@@ -147,6 +147,13 @@ class LLMModel(ABC):
         """Extract structured inventor/applicant/agent addresses from OCR text."""
         ...
 
+    def reload(self) -> None:
+        """Unload and reload the model to reclaim newly available GPU memory.
+
+        Called after the OCR stage frees VRAM so the LLM can use the full GPU.
+        Default is a no-op; subclasses should override when applicable.
+        """
+
     @property
     @abstractmethod
     def provider_name(self) -> str:

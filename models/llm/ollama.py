@@ -48,6 +48,27 @@ class OllamaModel(LLMModel):
     def model_name(self) -> str:
         return self._model
 
+    def reload(self) -> None:
+        """Unload the model from GPU, then preload it so ollama re-evaluates available VRAM."""
+        try:
+            # keep_alive=0 tells ollama to unload the model immediately
+            self._client.chat(
+                model=self._model,
+                messages=[{"role": "user", "content": "hi"}],
+                keep_alive=0,
+            )
+            logger.info(f"Unloaded {self._model} from GPU.")
+            # Preload: sending keep_alive with an empty prompt triggers a load
+            self._client.chat(
+                model=self._model,
+                messages=[{"role": "user", "content": "hi"}],
+                options={"num_ctx": self._num_ctx},
+                keep_alive=self._keep_alive,
+            )
+            logger.info(f"Reloaded {self._model} — ollama will use all available VRAM.")
+        except Exception as e:
+            logger.warning(f"Could not reload ollama model: {e}")
+
     def extract_addresses(self, ocr_text: str, prompt_template: str, template_vars: dict | None = None) -> LLMResult:
         prompt = Template(prompt_template).render(ocr_text=ocr_text, **(template_vars or {}))
         t0 = time.perf_counter()

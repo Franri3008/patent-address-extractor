@@ -91,21 +91,32 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
         logger.info(f"Loading LLM: {config['llm']['provider']}/{config['llm']['model']} ...");
         llm_model = get_llm_model(config);
 
+        ocr_freed_event = asyncio.Event();
+
         async def _run_ocr() -> None:
             await ocr_coordinator(image_q, text_q, ocr_model, n_pdf, n_llm, config,
                                   tracker=tracker, profiler=profiler);
             keep_ocr = config.get("keep_ocr") or config.get("ocr", {}).get("keep_loaded", False);
             if not keep_ocr:
                 ocr_model.unload();
+                ocr_freed_event.set();
             if tracker:
                 tracker.update("ocr_worker", status="done", current_patent="");
 
+        async def _reload_llm_after_ocr() -> None:
+            """Wait for OCR to free GPU, then reload the LLM to use freed VRAM."""
+            await ocr_freed_event.wait();
+            await asyncio.to_thread(llm_model.reload);
+
         async def _run_llm() -> None:
-            await asyncio.gather(*[
-                llm_worker(text_q, result_q, llm_model, config,
-                           tracker=tracker, profiler=profiler)
-                for _ in range(n_llm)
-            ]);
+            await asyncio.gather(
+                _reload_llm_after_ocr(),
+                *[
+                    llm_worker(text_q, result_q, llm_model, config,
+                               tracker=tracker, profiler=profiler)
+                    for _ in range(n_llm)
+                ],
+            );
             if tracker:
                 tracker.update("llm_worker", status="done", current_patent="");
 
