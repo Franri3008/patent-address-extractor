@@ -9,6 +9,9 @@ def get_llm_model(config: dict) -> LLMModel:
     if provider == "ollama":
         from models.llm.ollama import OllamaModel
         return OllamaModel(config);
+    if provider == "vllm":
+        from models.llm.vllm_api import VLLMModel
+        return VLLMModel(config);
     if provider == "openai":
         from models.llm.openai_api import OpenAIModel
         return OpenAIModel(config);

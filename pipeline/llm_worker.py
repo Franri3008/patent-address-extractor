@@ -105,11 +105,18 @@ async def llm_worker(
                 error=ocr_error or "empty OCR text",
             );
         else:
+            # Use native async if the model supports it (vLLM), else fall back to thread
+            _has_async = hasattr(llm_model, "extract_addresses_async")
             for attempt in range(max_retries + 1):
                 try:
-                    llm_result = await asyncio.to_thread(
-                        llm_model.extract_addresses, llm_input, prompt_template, template_vars
-                    );
+                    if _has_async:
+                        llm_result = await llm_model.extract_addresses_async(
+                            llm_input, prompt_template, template_vars
+                        );
+                    else:
+                        llm_result = await asyncio.to_thread(
+                            llm_model.extract_addresses, llm_input, prompt_template, template_vars
+                        );
                     llm_result.retries = attempt;
                     break;
                 except Exception as e:
