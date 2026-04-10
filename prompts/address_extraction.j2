@@ -28,11 +28,16 @@ OCR TEXT (may span multiple pages, from a two-column layout):
 {{ ocr_text }}
 ---
 
-Return this exact JSON structure:
+Return this exact JSON structure. Deduplicate addresses: assign each unique address an integer id, list all addresses in the "addresses" array, and reference them by address_id in entities. If two entities share the same address, they must reference the same id.
 {
-  "inventors":  [{"name": "...", "address": "..."}],
-  "applicants": [{"name": "...", "address": "..."}],
-  "agents":     [{"name": "...", "address": "..."}],
-  "sections_detected": ["(71)", "(72)", "(74)"],
+  "addresses": [
+    {"id": 1, "address": "650 Anlaby Road, Kingston Upon Hull Yorkshire HU3 6UU (GB)"},
+    {"id": 2, "address": null}
+  ],
+  "entities": {
+    "inventors":  [{"name": "RYAN, David", "address_id": 1}],
+    "applicants": [{"name": "HABITAT AQUATICS LTD", "address_id": 1}],
+    "agents":     [{"name": "Some Agent", "address_id": 2}]
+  },
   "found": true
 }

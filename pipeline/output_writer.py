@@ -32,7 +32,7 @@ _CSV_COLUMNS = [
     "ipc_codes", "cpc_codes",
     "google_patents_url",
     "inventors_with_address", "applicants_with_address",
-    "addresses_found", "pdf_type", "pages_used", "page_reason", "sections_found",
+    "addresses_found", "pdf_type", "pages_used", "page_reason",
     "ocr_model", "llm_provider", "ocr_elapsed_s", "llm_elapsed_s", "llm_cost_usd",
     "error",
 ];
@@ -56,7 +56,6 @@ def _make_csv_row(item: dict, config: dict) -> dict:
     row["pdf_type"] = pdf_meta.get("pdf_type", "");
     row["pages_used"] = item.get("pages_used", 0);
     row["page_reason"] = item.get("page_reason", "");
-    row["sections_found"] = " ".join(item.get("sections_found", []));
     row["ocr_model"] = ocr_meta.get("model", "");
     row["llm_provider"] = f"{config['llm']['provider']}/{config['llm']['model']}";
     row["ocr_elapsed_s"] = ocr_meta.get("elapsed_s", "");
@@ -104,7 +103,6 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
             "inventors_count": len(llm.inventors),
             "applicants_count": len(llm.applicants),
             "agents_count": len(llm.agents),
-            "sections_detected": item.get("sections_found", []),
         },
         "error": llm.error,
     };

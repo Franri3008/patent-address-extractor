@@ -8,7 +8,7 @@ import time
 from jinja2 import Template
 from PIL.Image import Image
 
-from models.llm.base import EXTRACTION_SCHEMA, LLMResult
+from models.llm.base import VISION_EXTRACTION_SCHEMA, LLMResult
 from models.llm.vision_base import VisionLLMModel
 from utils.logger import get_logger
 
@@ -46,7 +46,7 @@ class OllamaVisionModel(VisionLLMModel):
                 "content": prompt,
                 "images": [image_b64],
             }],
-            format=EXTRACTION_SCHEMA,
+            format=VISION_EXTRACTION_SCHEMA,
             options={"temperature": self._temperature},
             think=self._think,
         );

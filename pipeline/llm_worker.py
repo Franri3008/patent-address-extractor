@@ -204,7 +204,6 @@ async def llm_worker(
             "ocr_meta": item["ocr_meta"],
             "pages_used": item["pages_used"],
             "page_reason": item["page_reason"],
-            "sections_found": [f"({s})" for s in sorted(item.get("sections", []))],
             "llm_prompt": rendered_prompt,
             "validation_warnings": validation_warnings,
         });

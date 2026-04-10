@@ -141,11 +141,20 @@ def _parse_response(
 
     try:
         data = json.loads(cleaned)
+        addr_map = {a["id"]: a["address"] for a in data.get("addresses", [])}
+        entities = data.get("entities", {})
+
+        def resolve(entity_list: list) -> list:
+            return [
+                {"name": e["name"], "address": addr_map.get(e.get("address_id"))}
+                for e in entity_list
+            ]
+
         return LLMResult(
-            inventors=data.get("inventors", []),
-            applicants=data.get("applicants", []),
-            agents=data.get("agents", []),
-            sections_detected=data.get("sections_detected", []),
+            inventors=resolve(entities.get("inventors", [])),
+            applicants=resolve(entities.get("applicants", [])),
+            agents=resolve(entities.get("agents", [])),
+            sections_detected=[],
             found=bool(data.get("found", False)),
             tokens_in=tokens_in,
             tokens_out=tokens_out,

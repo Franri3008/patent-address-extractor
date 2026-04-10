@@ -4,7 +4,73 @@ from dataclasses import dataclass, field
 # JSON schema for structured output enforcement.
 # Backends that support native schema enforcement (Ollama, OpenAI, Google)
 # pass this to their API; others rely on prompt instructions.
+#
+# New format: addresses are deduplicated into an "addresses" array and
+# referenced by integer ID inside entities, saving output tokens when
+# the same address appears for multiple inventors/applicants.
 EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "addresses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "address": {"type": ["string", "null"]},
+                },
+                "required": ["id", "address"],
+            },
+        },
+        "entities": {
+            "type": "object",
+            "properties": {
+                "inventors": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "address_id": {"type": ["integer", "null"]},
+                        },
+                        "required": ["name", "address_id"],
+                    },
+                },
+                "applicants": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "address_id": {"type": ["integer", "null"]},
+                        },
+                        "required": ["name", "address_id"],
+                    },
+                },
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "address_id": {"type": ["integer", "null"]},
+                        },
+                        "required": ["name", "address_id"],
+                    },
+                },
+            },
+            "required": ["inventors", "applicants", "agents"],
+            "additionalProperties": False,
+        },
+        "found": {"type": "boolean"},
+    },
+    "required": ["addresses", "entities", "found"],
+    "additionalProperties": False,
+};
+
+# Schema used by the vision LLM worker (ollama_vision.py), which processes
+# pages one-by-one and needs sections_detected for its stop logic.
+VISION_EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
         "inventors": {
