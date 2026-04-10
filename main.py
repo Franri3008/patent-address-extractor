@@ -99,14 +99,16 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
             keep_ocr = config.get("keep_ocr") or config.get("ocr", {}).get("keep_loaded", False);
             if not keep_ocr:
                 ocr_model.unload();
-                ocr_freed_event.set();
+            ocr_freed_event.set();
             if tracker:
                 tracker.update("ocr_worker", status="done", current_patent="");
 
         async def _reload_llm_after_ocr() -> None:
             """Wait for OCR to free GPU, then reload the LLM to use freed VRAM."""
             await ocr_freed_event.wait();
-            await asyncio.to_thread(llm_model.reload);
+            keep_ocr = config.get("keep_ocr") or config.get("ocr", {}).get("keep_loaded", False);
+            if not keep_ocr:
+                await asyncio.to_thread(llm_model.reload);
 
         async def _run_llm() -> None:
             await asyncio.gather(
