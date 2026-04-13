@@ -56,13 +56,11 @@ Runs the model on a vLLM server; the pipeline only needs the `openai` client. No
    ```bash
    pip install vllm
    
-   vllm serve PaddlePaddle/PaddleOCR-VL \
-   --trust-remote-code \
-   --served-model-name PaddleOCR-VL-0.9B \
-   --max-num-batched-tokens 16384 \
-   --no-enable-prefix-caching \
-   --mm-processor-cache-gb 0 \
-   --gpu-memory-utilization 0.4;
+   VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \
+   --trust-remote-code --served-model-name PaddleOCR-VL-0.9B \
+   --port 8000 --gpu-memory-utilization 0.40 \
+   --max-num-batched-tokens 32768 --max-num-seqs 16 \
+   --no-enable-prefix-caching --mm-processor-cache-gb 2
    ```
 
 2. Set in `config.json`:
@@ -216,12 +214,12 @@ Several optional modules improve extraction accuracy on noisy, scanned, and two-
 
 All LLM backends now pass a JSON schema to the API when the provider supports it natively. This eliminates JSON parse failures and prevents the model from inventing extra fields or returning malformed responses.
 
-| Provider  | Enforcement method                                      |
-| --------- | ------------------------------------------------------- |
-| Ollama    | `format=` parameter with JSON schema                    |
-| OpenAI    | `response_format.json_schema` with `strict: true`       |
-| Google    | `response_schema` in `GenerationConfig`                 |
-| Anthropic | Prompt-based (no native schema mode)                    |
+| Provider  | Enforcement method                                |
+| --------- | ------------------------------------------------- |
+| Ollama    | `format=` parameter with JSON schema              |
+| OpenAI    | `response_format.json_schema` with `strict: true` |
+| Google    | `response_schema` in `GenerationConfig`           |
+| Anthropic | Prompt-based (no native schema mode)              |
 
 No config change required — this is always active.
 
@@ -381,16 +379,23 @@ python pipeline/bq_fetcher.py --year 2025 --month 1 --limit 10          # fetch 
 python pipeline/bq_fetcher.py --patent WO2025086418                      # single patent metadata
 ```
 
-### OCR server (vLLM, run on GPU machine)
+### vLLM servers (run on GPU machine, each in its own terminal)
 
 ```bash
-vllm serve PaddlePaddle/PaddleOCR-VL \
-  --trust-remote-code \
-  --served-model-name PaddleOCR-VL-0.9B \
-  --max-num-batched-tokens 16384 \
-  --no-enable-prefix-caching \
-  --mm-processor-cache-gb 0 \
-  --gpu-memory-utilization 0.4
+# OCR server (PaddleOCR-VL, port 8000):
+VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \
+  --trust-remote-code --served-model-name PaddleOCR-VL-0.9B \
+  --port 8000 --gpu-memory-utilization 0.40 \
+  --max-num-batched-tokens 32768 --max-num-seqs 16 \
+  --no-enable-prefix-caching --mm-processor-cache-gb 2
+
+# LLM server (Gemma4 E2B, port 8001):
+VLLM_USE_DEEP_GEMM=0 vllm serve google/gemma-4-E2B-it \
+  --port 8001 --served-model-name gemma4 \
+  --gpu-memory-utilization 0.50 --max-num-seqs 32 \
+  --max-model-len 4096 \
+  --limit-mm-per-prompt '{"image": 0, "audio": 0}' \
+  --enable-prefix-caching
 ```
 
 ### Ollama (local LLM)
