@@ -19,6 +19,7 @@ from tqdm import tqdm
 from models.llm.base import LLMResult
 from utils.logger import get_logger
 from utils.profiler import PipelineProfiler
+from utils.progress import ProgressReport
 from utils.status_tracker import StatusTracker
 
 logger = get_logger("output_writer");
@@ -34,8 +35,77 @@ _CSV_COLUMNS = [
     "inventors_with_address", "applicants_with_address",
     "addresses_found", "pdf_type", "pages_used", "page_reason",
     "ocr_model", "llm_provider", "ocr_elapsed_s", "llm_elapsed_s", "llm_cost_usd",
+    "status", "status_detail", "vision_verified",
     "error",
 ];
+
+
+def _summarize_warnings(warnings: list[str]) -> str:
+    """Compress a list of validation warning strings into a short, human-readable summary.
+
+    Groups by category (missing entity, unknown country, section mismatch).
+    """
+    if not warnings:
+        return "";
+
+    missing_inv = sum(1 for w in warnings if w.startswith("Missing known inventor"));
+    missing_app = sum(1 for w in warnings if w.startswith("Missing known applicant"));
+    unknown_cc = [w for w in warnings if "Unknown country code" in w];
+    section_mm = [w for w in warnings if "section" in w.lower() and (
+        "OCR did not" in w or "LLM did not" in w
+    )];
+
+    parts: list[str] = [];
+    if missing_inv:
+        parts.append(f"missing {missing_inv} known inventor{'s' if missing_inv > 1 else ''}");
+    if missing_app:
+        parts.append(f"missing {missing_app} known applicant{'s' if missing_app > 1 else ''}");
+    if unknown_cc:
+        # Pull out the codes for context.
+        import re
+        codes = sorted({m.group(1) for w in unknown_cc for m in [re.search(r"'\(([A-Z]{2})\)'", w)] if m});
+        parts.append(f"unknown country code{'s' if len(codes) > 1 else ''} ({', '.join(codes) or '?'})");
+    if section_mm:
+        parts.append(f"{len(section_mm)} section mismatch{'es' if len(section_mm) > 1 else ''}");
+
+    # Catch any uncategorized warnings.
+    handled = missing_inv + missing_app + len(unknown_cc) + len(section_mm);
+    other = len(warnings) - handled;
+    if other > 0:
+        parts.append(f"{other} other warning{'s' if other > 1 else ''}");
+
+    return "; ".join(parts);
+
+
+def _compute_status(item: dict) -> tuple[str, str]:
+    """Classify the extraction outcome for a patent.
+
+    Returns (status, status_detail). Status taxonomy:
+      - ok      : addresses found, no validation warnings (or vision verification cleared them)
+      - partial : addresses found but post-validation flagged issues
+      - empty   : extraction completed without error but returned no addresses
+      - error   : pipeline error (PDF fetch, OCR, LLM exception)
+    """
+    llm: LLMResult = item["llm_result"];
+    warnings: list[str] = item.get("validation_warnings") or [];
+    vision_verified: bool = bool(item.get("vision_verified"));
+
+    if llm.error:
+        err_short = str(llm.error).strip().splitlines()[0][:200];
+        return "error", err_short;
+
+    if not llm.found:
+        return "empty", "no addresses extracted";
+
+    # Vision verification was triggered by warnings and produced a usable result —
+    # treat the final extraction as clean.
+    if vision_verified:
+        return "ok", "";
+
+    if warnings:
+        return "partial", _summarize_warnings(warnings);
+
+    return "ok", "";
 
 
 def _build_url(pub_number: str) -> str:
@@ -62,6 +132,11 @@ def _make_csv_row(item: dict, config: dict) -> dict:
     row["llm_elapsed_s"] = round(llm.elapsed_s, 3);
     row["llm_cost_usd"] = llm.cost_usd if llm.cost_usd is not None else "";
     row["error"] = llm.error or "";
+
+    status, status_detail = _compute_status(item);
+    row["status"] = status;
+    row["status_detail"] = status_detail;
+    row["vision_verified"] = bool(item.get("vision_verified"));
 
     return {col: row.get(col, "") for col in _CSV_COLUMNS};
 
@@ -111,6 +186,11 @@ def _make_meta_record(item: dict, config: dict, run_id: str) -> dict:
     if validation_warnings:
         record["validation_warnings"] = validation_warnings;
 
+    status, status_detail = _compute_status(item);
+    record["status"] = status;
+    record["status_detail"] = status_detail;
+    record["vision_verified"] = bool(item.get("vision_verified"));
+
     record["llm_prompt"] = item.get("llm_prompt", "");
     record["llm_raw_response"] = llm.raw_response;
 
@@ -130,6 +210,7 @@ async def output_stage(
     stats: dict,
     tracker: StatusTracker | None = None,
     profiler: PipelineProfiler | None = None,
+    progress: ProgressReport | None = None,
 ) -> None:
     """Single output-writer coroutine. Thread-safe because it's the only writer."""
     out_dir = Path(config["output"]["dir"]);
@@ -204,10 +285,15 @@ async def output_stage(
                 pub = str(item["row"].get("publication_number", ""));
                 profiler.record_output_done(pub, write_s);
 
-            if item["llm_result"].found:
+            llm_res = item["llm_result"];
+            if llm_res.found:
                 successes += 1;
             else:
                 failures += 1;
+
+            if progress:
+                pub = str(item["row"].get("publication_number", ""));
+                progress.record(pub, success=bool(llm_res.found), error=llm_res.error);
 
             if tracker:
                 tracker.update(

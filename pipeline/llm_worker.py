@@ -141,6 +141,7 @@ async def llm_worker(
 
         # --- Post-validation (deterministic, no extra LLM calls) ---
         validation_warnings: list[str] = [];
+        vision_verified = False;
         if (
             config["llm"].get("post_validation", {}).get("enabled", False)
             and llm_result
@@ -166,6 +167,7 @@ async def llm_worker(
                     );
                     if verified:
                         llm_result = verified;
+                        vision_verified = True;
 
         if tracker and llm_result:
             llm_stage = tracker.state["stages"]["llm_worker"];
@@ -205,4 +207,5 @@ async def llm_worker(
             "page_reason": item["page_reason"],
             "llm_prompt": rendered_prompt,
             "validation_warnings": validation_warnings,
+            "vision_verified": vision_verified,
         });
