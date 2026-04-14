@@ -8,31 +8,49 @@ SELECT
   p.filing_date,
   p.grant_date,
   p.priority_date,
+
   (SELECT STRING_AGG(ih.name, ' | ')
      FROM UNNEST(p.inventor_harmonized) AS ih
-  )               AS inventor_names,
+  ) AS inventor_names,
+
   (SELECT STRING_AGG(ih.country_code, ' | ')
      FROM UNNEST(p.inventor_harmonized) AS ih
-  )               AS inventor_countries,
+  ) AS inventor_countries,
+
   (SELECT STRING_AGG(ah.name, ' | ')
      FROM UNNEST(p.assignee_harmonized) AS ah
-  )               AS assignee_names,
+  ) AS assignee_names,
+
   (SELECT STRING_AGG(ah.country_code, ' | ')
      FROM UNNEST(p.assignee_harmonized) AS ah
-  )               AS assignee_countries,
+  ) AS assignee_countries,
+
   (SELECT STRING_AGG(ipc.code, ' | ')
      FROM UNNEST(p.ipc) AS ipc
-  )               AS ipc_codes,
+  ) AS ipc_codes,
+
   (SELECT STRING_AGG(cpc.code, ' | ')
      FROM UNNEST(p.cpc) AS cpc
-  )               AS cpc_codes
+  ) AS cpc_codes,
+
+  (SELECT STRING_AGG(c.publication_number, ' | ')
+     FROM UNNEST(p.citation) AS c
+  ) AS cited_publications,
+
+  (SELECT STRING_AGG(c.category, ' | ')
+     FROM UNNEST(p.citation) AS c
+  ) AS citation_categories
+
 FROM
   `patents-public-data.patents.publications` AS p
+
 CROSS JOIN
   UNNEST(p.title_localized) AS tl
+
 WHERE
   tl.language = 'en'
   AND p.publication_date BETWEEN {yyyy}{mm}00 AND {yyyy}{mm}32
   AND p.country_code = 'WO'
+
 ORDER BY
-  p.publication_date ASC
+  p.publication_date ASC;

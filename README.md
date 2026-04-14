@@ -56,13 +56,11 @@ Runs the model on a vLLM server; the pipeline only needs the `openai` client. No
    ```bash
    pip install vllm
    
-   vllm serve PaddlePaddle/PaddleOCR-VL \
-   --trust-remote-code \
-   --served-model-name PaddleOCR-VL-0.9B \
-   --max-num-batched-tokens 16384 \
-   --no-enable-prefix-caching \
-   --mm-processor-cache-gb 0 \
-   --gpu-memory-utilization 0.4;
+   VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \
+   --trust-remote-code --served-model-name PaddleOCR-VL-0.9B \
+   --port 8000 --gpu-memory-utilization 0.40 \
+   --max-num-batched-tokens 32768 --max-num-seqs 16 \
+   --no-enable-prefix-caching --mm-processor-cache-gb 2
    ```
 
 2. Set in `config.json`:
@@ -216,12 +214,12 @@ Several optional modules improve extraction accuracy on noisy, scanned, and two-
 
 All LLM backends now pass a JSON schema to the API when the provider supports it natively. This eliminates JSON parse failures and prevents the model from inventing extra fields or returning malformed responses.
 
-| Provider  | Enforcement method                                      |
-| --------- | ------------------------------------------------------- |
-| Ollama    | `format=` parameter with JSON schema                    |
-| OpenAI    | `response_format.json_schema` with `strict: true`       |
-| Google    | `response_schema` in `GenerationConfig`                 |
-| Anthropic | Prompt-based (no native schema mode)                    |
+| Provider  | Enforcement method                                |
+| --------- | ------------------------------------------------- |
+| Ollama    | `format=` parameter with JSON schema              |
+| OpenAI    | `response_format.json_schema` with `strict: true` |
+| Google    | `response_schema` in `GenerationConfig`           |
+| Anthropic | Prompt-based (no native schema mode)              |
 
 No config change required — this is always active.
 
@@ -381,16 +379,45 @@ python pipeline/bq_fetcher.py --year 2025 --month 1 --limit 10          # fetch 
 python pipeline/bq_fetcher.py --patent WO2025086418                      # single patent metadata
 ```
 
-### OCR server (vLLM, run on GPU machine)
+### vLLM servers (run on GPU machine, each in its own terminal)
+
+#### One-time prerequisites for Gemma 4
+
+Gemma 4 is newer than the current stable vLLM / transformers releases. To serve `google/gemma-4-E2B-it` you need:
 
 ```bash
-vllm serve PaddlePaddle/PaddleOCR-VL \
-  --trust-remote-code \
-  --served-model-name PaddleOCR-VL-0.9B \
-  --max-num-batched-tokens 16384 \
-  --no-enable-prefix-caching \
-  --mm-processor-cache-gb 0 \
-  --gpu-memory-utilization 0.4
+# vLLM nightly (stable releases don't yet know about the gemma4 architecture)
+pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
+
+# transformers from source (the PyPI build also doesn't yet register gemma4)
+pip install --upgrade --force-reinstall git+https://github.com/huggingface/transformers.git
+
+# compressed-tensors pinned to the version vLLM nightly expects
+pip install 'compressed-tensors==0.14.0.1'
+```
+
+Verify with `pip check`. Ignore warnings of the form `vllm X.Y requires transformers<5` — that pin is conservative; transformers-main is what actually supports `gemma4`.
+
+Keep `VLLM_USE_DEEP_GEMM=0` unless you have the DeepGEMM FP8 kernels installed — otherwise the FP8 warmup crashes with `RuntimeError: DeepGEMM backend is not available or outdated`.
+
+#### Starting the servers
+
+```bash
+# OCR server (PaddleOCR-VL, port 8000):
+VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \
+  --trust-remote-code --served-model-name PaddleOCR-VL-0.9B \
+  --port 8000 --gpu-memory-utilization 0.40 \
+  --max-num-batched-tokens 32768 --max-num-seqs 16 \
+  --no-enable-prefix-caching --mm-processor-cache-gb 2
+
+# LLM server (Gemma4 E2B, port 8001):
+VLLM_USE_DEEP_GEMM=0 vllm serve google/gemma-4-E2B-it \
+  --port 8001 --served-model-name gemma4 \
+  --gpu-memory-utilization 0.55 --max-num-seqs 32 \
+  --max-model-len 4096 \
+  --limit-mm-per-prompt '{"image": 0, "audio": 0}' \
+  --enable-prefix-caching \
+  --quantization fp8
 ```
 
 ### Ollama (local LLM)

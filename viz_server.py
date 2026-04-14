@@ -20,12 +20,15 @@ DASHBOARD_DIR = Path("dashboard")
 # One queue per connected SSE client
 _sse_clients: list[queue.Queue] = []
 _sse_lock = threading.Lock()
+_last_msg: bytes | None = None
 
 
 def broadcast(state: dict) -> None:
     """Push the current state snapshot to every connected SSE client."""
+    global _last_msg
     msg = ("data: " + json.dumps(state, ensure_ascii=False, default=str) + "\n\n").encode()
     with _sse_lock:
+        _last_msg = msg
         dead: list[queue.Queue] = []
         for q in _sse_clients:
             try:
@@ -67,6 +70,9 @@ class VizHandler(BaseHTTPRequestHandler):
         client_q: queue.Queue = queue.Queue(maxsize=64)
         with _sse_lock:
             _sse_clients.append(client_q)
+            # Send current state immediately so the client doesn't miss past updates
+            if _last_msg is not None:
+                client_q.put_nowait(_last_msg)
 
         try:
             while True:

@@ -25,9 +25,68 @@ logger = get_logger("llm_worker");
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "address_extraction.j2";
 
+# Conservative chars-per-token estimate. Real ratio is ~3.5-4 for English,
+# lower for CJK/mixed scripts. We pick 3 to stay safely under the limit.
+_CHARS_PER_TOKEN = 3;
+
+# Safety margin (in tokens) between our estimate and the model's hard limit,
+# to absorb estimation error from the char-based approximation.
+_TOKEN_SAFETY_MARGIN = 128;
+
 
 def _load_prompt() -> str:
     return _PROMPT_PATH.read_text(encoding="utf-8");
+
+
+def _truncate_for_context(
+    llm_input: str,
+    prompt_template: str,
+    template_vars: dict,
+    max_model_len: int,
+    max_output_tokens: int,
+    pub_number: str,
+) -> str:
+    """Truncate ``llm_input`` so the rendered prompt fits the model context.
+
+    Uses a char-based token estimate — good enough given the safety margin.
+    Returns ``llm_input`` unchanged if it already fits.
+    """
+    if not llm_input:
+        return llm_input;
+
+    # Token budget available for the input prompt.
+    input_token_budget = max_model_len - max_output_tokens - _TOKEN_SAFETY_MARGIN;
+    if input_token_budget <= 0:
+        logger.warning(
+            f"[LLM] {pub_number}: max_model_len ({max_model_len}) too small for "
+            f"max_tokens ({max_output_tokens}); skipping truncation"
+        );
+        return llm_input;
+
+    # Rendered-prompt overhead (template + known names, without OCR text).
+    overhead_chars = len(
+        Template(prompt_template).render(ocr_text="", **template_vars)
+    );
+
+    # Total char budget for the full rendered prompt.
+    total_char_budget = input_token_budget * _CHARS_PER_TOKEN;
+    ocr_char_budget = total_char_budget - overhead_chars;
+
+    if ocr_char_budget <= 0:
+        logger.warning(
+            f"[LLM] {pub_number}: prompt overhead ({overhead_chars} chars) already "
+            f"exceeds context budget; sending minimal input"
+        );
+        return "";
+
+    if len(llm_input) <= ocr_char_budget:
+        return llm_input;
+
+    logger.info(
+        f"[LLM] {pub_number}: truncating OCR text {len(llm_input)} -> {ocr_char_budget} "
+        f"chars to fit {max_model_len}-token context window"
+    );
+    return llm_input[:ocr_char_budget];
 
 
 async def llm_worker(
@@ -46,6 +105,8 @@ async def llm_worker(
     """
     prompt_template = _load_prompt();
     max_retries: int = config["llm"].get("max_retries", 2);
+    max_model_len: int | None = config["llm"].get("max_model_len");
+    max_output_tokens: int = config["llm"].get("max_tokens", 1024);
 
     while True:
         item = await text_q.get();
@@ -87,6 +148,13 @@ async def llm_worker(
             llm_input = ocr_text;
 
         template_vars = parse_known_names(row);
+
+        # Keep the rendered prompt within the model's context window.
+        if max_model_len:
+            llm_input = _truncate_for_context(
+                llm_input, prompt_template, template_vars,
+                max_model_len, max_output_tokens, pub_number,
+            );
 
         logger.debug(
             f"[LLM] {pub_number}: OCR chars={len(ocr_text)}, trimmed chars={len(llm_input)}"
@@ -141,6 +209,7 @@ async def llm_worker(
 
         # --- Post-validation (deterministic, no extra LLM calls) ---
         validation_warnings: list[str] = [];
+        vision_verified = False;
         if (
             config["llm"].get("post_validation", {}).get("enabled", False)
             and llm_result
@@ -166,6 +235,7 @@ async def llm_worker(
                     );
                     if verified:
                         llm_result = verified;
+                        vision_verified = True;
 
         if tracker and llm_result:
             llm_stage = tracker.state["stages"]["llm_worker"];
@@ -205,4 +275,5 @@ async def llm_worker(
             "page_reason": item["page_reason"],
             "llm_prompt": rendered_prompt,
             "validation_warnings": validation_warnings,
+            "vision_verified": vision_verified,
         });

@@ -19,6 +19,7 @@ from pipeline.pdf_worker import pdf_worker
 from pipeline.vision_llm_worker import vision_llm_worker
 from utils.logger import get_logger
 from utils.profiler import PipelineProfiler
+from utils.progress import ProgressReport
 from utils.reporter import print_individual_report, write_batch_report
 from utils.status_tracker import StatusTracker
 
@@ -34,9 +35,30 @@ def load_config(path: str) -> dict:
         return json.load(f);
 
 
+def _load_done_pubs(csv_path: Path) -> set[str]:
+    """Read publication_numbers already written to the output CSV.
+
+    Returns an empty set if the file is missing or unreadable. Used to
+    skip already-processed patents on resume.
+    """
+    if not csv_path.exists():
+        return set();
+    try:
+        import pandas as pd
+        df = pd.read_csv(csv_path, usecols=["publication_number"], dtype=str);
+    except Exception as e:
+        logger.warning(f"Could not read {csv_path} for resume: {e}");
+        return set();
+    return {
+        str(p).replace("-", "").upper()
+        for p in df["publication_number"].dropna()
+    };
+
+
 async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
                        tracker: StatusTracker | None = None,
-                       profiler: PipelineProfiler | None = None) -> dict:
+                       profiler: PipelineProfiler | None = None,
+                       progress: ProgressReport | None = None) -> dict:
     """Assemble and run the async multi-stage pipeline."""
     workers_cfg = config["workers"];
     q_size: int = workers_cfg["queue_max_size"];
@@ -129,7 +151,7 @@ async def run_pipeline(config: dict, patent_rows: list[dict], run_id: str,
 
     async def _run_output() -> None:
         await output_stage(result_q, config, run_id, total, n_result_sentinels, stats,
-                           tracker=tracker, profiler=profiler);
+                           tracker=tracker, profiler=profiler, progress=progress);
         if tracker:
             tracker.update("output_writer", status="done");
 
@@ -208,12 +230,25 @@ def main() -> None:
     t_start = time.perf_counter();
     logger.info(f"Run started — mode={mode}, run_id={run_id}");
 
+    # Create tracker early so BQ fetch shows as "running" in the dashboard
+    profiler = PipelineProfiler();
+    tracker = StatusTracker(
+        dashboard_dir=dashboard_dir,
+        run_id=run_id,
+        run_mode=mode,
+        pipeline_mode=config.get("pipeline_mode", 0),
+        total_patents=0,
+        broadcast_fn=_broadcast,
+    );
+
     if mode == "individual":
         patent_id = config["individual"]["patent_id"];
         logger.info(f"Individual mode — patent: {patent_id}");
+        tracker.update("bq_fetch", status="running");
         patent_rows = [{"publication_number": patent_id.replace("-", "")}];
     else:
         raw_csv = out_dir / f"raw_{fname}.csv";
+        tracker.update("bq_fetch", status="running");
         if raw_csv.exists():
             import pandas as pd
             logger.info(f"Loading cached BigQuery results from {raw_csv}");
@@ -226,23 +261,53 @@ def main() -> None:
             patent_rows = patent_rows[:int(limit)];
             logger.info(f"Limit applied: processing {len(patent_rows)} of available rows.");
 
+        # Resume: skip patents already present in the output CSV.
+        existing_csv = out_dir / f"{fname}.csv";
+        already_done_pubs = _load_done_pubs(existing_csv);
+        if already_done_pubs:
+            n_before = len(patent_rows);
+            patent_rows = [
+                r for r in patent_rows
+                if str(r.get("publication_number", "")).replace("-", "").upper()
+                not in already_done_pubs
+            ];
+            n_skipped = n_before - len(patent_rows);
+            logger.info(
+                f"Resume: found {len(already_done_pubs)} already-processed patents in "
+                f"{existing_csv.name}; skipping {n_skipped}, {len(patent_rows)} remaining."
+            );
+
     logger.info(f"Processing {len(patent_rows)} patents ...");
 
-    profiler = PipelineProfiler();
-
-    tracker = StatusTracker(
-        dashboard_dir=dashboard_dir,
-        run_id=run_id,
-        run_mode=mode,
-        pipeline_mode=config.get("pipeline_mode", 0),
-        total_patents=len(patent_rows),
-        broadcast_fn=_broadcast,
-    );
+    tracker.state["total_patents"] = len(patent_rows);
     tracker.update("bq_fetch", status="done",
                    patents_fetched=len(patent_rows),
                    elapsed_s=round(time.perf_counter() - t_start, 3));
 
-    stats = asyncio.run(run_pipeline(config, patent_rows, run_id, tracker=tracker, profiler=profiler));
+    if mode == "batch" and not patent_rows:
+        logger.info("Nothing to do — all patents in the target set are already processed. Exiting.");
+        tracker.finish();
+        return;
+
+    progress: ProgressReport | None = None
+    if mode == "batch" and patent_rows:
+        progress_path = out_dir / f"progress_{fname}.json";
+        already_done = len(_load_done_pubs(out_dir / f"{fname}.csv"));
+        flush_every = int(config.get("output", {}).get("progress_flush_every", 25));
+        progress = ProgressReport(
+            path=progress_path,
+            run_id=run_id,
+            total=len(patent_rows),
+            already_done=already_done,
+            flush_every=flush_every,
+        );
+        logger.info(f"Progress snapshots → {progress_path} (every {flush_every} patents)");
+
+    stats = asyncio.run(run_pipeline(config, patent_rows, run_id, tracker=tracker,
+                                     profiler=profiler, progress=progress));
+    if progress:
+        progress.flush();
+        progress.log_summary();
     tracker.finish();
 
     elapsed = time.perf_counter() - t_start;
