@@ -381,6 +381,27 @@ python pipeline/bq_fetcher.py --patent WO2025086418                      # singl
 
 ### vLLM servers (run on GPU machine, each in its own terminal)
 
+#### One-time prerequisites for Gemma 4
+
+Gemma 4 is newer than the current stable vLLM / transformers releases. To serve `google/gemma-4-E2B-it` you need:
+
+```bash
+# vLLM nightly (stable releases don't yet know about the gemma4 architecture)
+pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
+
+# transformers from source (the PyPI build also doesn't yet register gemma4)
+pip install --upgrade --force-reinstall git+https://github.com/huggingface/transformers.git
+
+# compressed-tensors pinned to the version vLLM nightly expects
+pip install 'compressed-tensors==0.14.0.1'
+```
+
+Verify with `pip check`. Ignore warnings of the form `vllm X.Y requires transformers<5` — that pin is conservative; transformers-main is what actually supports `gemma4`.
+
+Keep `VLLM_USE_DEEP_GEMM=0` unless you have the DeepGEMM FP8 kernels installed — otherwise the FP8 warmup crashes with `RuntimeError: DeepGEMM backend is not available or outdated`.
+
+#### Starting the servers
+
 ```bash
 # OCR server (PaddleOCR-VL, port 8000):
 VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \
@@ -392,10 +413,11 @@ VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \
 # LLM server (Gemma4 E2B, port 8001):
 VLLM_USE_DEEP_GEMM=0 vllm serve google/gemma-4-E2B-it \
   --port 8001 --served-model-name gemma4 \
-  --gpu-memory-utilization 0.50 --max-num-seqs 32 \
+  --gpu-memory-utilization 0.55 --max-num-seqs 32 \
   --max-model-len 4096 \
   --limit-mm-per-prompt '{"image": 0, "audio": 0}' \
-  --enable-prefix-caching
+  --enable-prefix-caching \
+  --quantization fp8
 ```
 
 ### Ollama (local LLM)
