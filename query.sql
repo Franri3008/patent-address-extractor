@@ -1,5 +1,6 @@
 SELECT
   p.publication_number,
+  p.family_id,
   tl.text AS title_text,
   tl.language AS title_language,
   p.application_number,
@@ -9,35 +10,35 @@ SELECT
   p.grant_date,
   p.priority_date,
 
-  (SELECT STRING_AGG(ih.name, ' | ')
+  (SELECT STRING_AGG(ih.name, ' || ')
      FROM UNNEST(p.inventor_harmonized) AS ih
   ) AS inventor_names,
 
-  (SELECT STRING_AGG(ih.country_code, ' | ')
+  (SELECT STRING_AGG(ih.country_code, ' || ')
      FROM UNNEST(p.inventor_harmonized) AS ih
   ) AS inventor_countries,
 
-  (SELECT STRING_AGG(ah.name, ' | ')
+  (SELECT STRING_AGG(ah.name, ' || ')
      FROM UNNEST(p.assignee_harmonized) AS ah
   ) AS assignee_names,
 
-  (SELECT STRING_AGG(ah.country_code, ' | ')
+  (SELECT STRING_AGG(ah.country_code, ' || ')
      FROM UNNEST(p.assignee_harmonized) AS ah
   ) AS assignee_countries,
 
-  (SELECT STRING_AGG(ipc.code, ' | ')
+  (SELECT STRING_AGG(ipc.code, ' || ')
      FROM UNNEST(p.ipc) AS ipc
   ) AS ipc_codes,
 
-  (SELECT STRING_AGG(cpc.code, ' | ')
+  (SELECT STRING_AGG(cpc.code, ' || ')
      FROM UNNEST(p.cpc) AS cpc
   ) AS cpc_codes,
 
-  (SELECT STRING_AGG(c.publication_number, ' | ')
+  (SELECT STRING_AGG(c.publication_number, ' || ')
      FROM UNNEST(p.citation) AS c
   ) AS cited_publications,
 
-  (SELECT STRING_AGG(c.category, ' | ')
+  (SELECT STRING_AGG(c.category, ' || ')
      FROM UNNEST(p.citation) AS c
   ) AS citation_categories
 
