@@ -60,6 +60,19 @@ pip install --upgrade pip -q
 pip install -r requirements.txt
 ok "Python dependencies installed"
 
+# ── 4b. vLLM + transformers for Gemma4 ───────────────────────────────────────
+# The stable pip wheel for vllm pins `transformers<5`, but Gemma4 weights
+# declare `model_type: "gemma4"`, which is only handled in transformers v5+.
+# We install from nightly/source and deliberately ignore pip's version-pin
+# warnings (the pins are stale; runtime imports resolve correctly).
+info "Installing vllm nightly + transformers v5 for Gemma4..."
+pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
+pip install --upgrade --force-reinstall --no-deps \
+    git+https://github.com/huggingface/transformers.git
+pip install --upgrade 'huggingface_hub>=1.0'   # transformers v5 needs hf_hub 1.x
+pip install --no-deps 'compressed-tensors==0.14.0.1'  # match vllm nightly's pin
+ok "vllm nightly + transformers v5 installed (pip pin warnings are expected)"
+
 # ── 5. Config ─────────────────────────────────────────────────────────────────
 if [[ ! -f config.json ]]; then
     if [[ -f config.example.json ]]; then
@@ -82,17 +95,18 @@ echo "  Run tests:             python main.py --test"
 echo ""
 echo "vLLM servers (start separately, each on its own port):"
 echo ""
-echo "  # IMPORTANT: Gemma 4 needs a very recent vLLM + transformers-from-source."
-echo "  # If 'vllm serve google/gemma-4-E2B-it' fails with 'model type gemma4 not"
-echo "  # recognized' or with a pydantic ValidationError, run:"
+echo "  # Gemma 4 support (vllm nightly + transformers v5) is installed by"
+echo "  # this script above — pip's resolver will print version-pin warnings"
+echo "  # for vllm/compressed-tensors vs transformers v5; they are expected"
+echo "  # and do not block runtime imports."
 echo ""
-echo "  #   pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly"
-echo "  #   pip install --upgrade --force-reinstall git+https://github.com/huggingface/transformers.git"
-echo "  #   pip install 'compressed-tensors==0.14.0.1'   # match vllm nightly's pin"
-echo ""
-echo "  # Also keep VLLM_USE_DEEP_GEMM=0 unless you have the deep_gemm kernels"
+echo "  # Keep VLLM_USE_DEEP_GEMM=0 unless you have the deep_gemm kernels"
 echo "  # installed — otherwise FP8 warmup will crash with 'DeepGEMM backend is"
 echo "  # not available or outdated'."
+echo ""
+echo "  # google/gemma-4-E2B-it is a gated repo — run 'huggingface-cli login'"
+echo "  # (or export HF_TOKEN=...) with an account that has accepted the"
+echo "  # Gemma license before starting the LLM server."
 echo ""
 echo "  # OCR server (PaddleOCR-VL, port 8000):"
 echo "  VLLM_USE_DEEP_GEMM=0 vllm serve PaddlePaddle/PaddleOCR-VL \\"

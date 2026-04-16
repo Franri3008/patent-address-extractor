@@ -16,8 +16,11 @@ jinja2>=3.1
 # vLLM-served: no torch needed on the client; install vllm separately on the server.
 torch>=2.0
 torchvision>=0.15
-transformers<5.0.0
-vllm>=0.19.0
+# NOTE: vllm + transformers are NOT pinned here because Gemma4 requires
+# vllm nightly + transformers-from-source (see setup.sh for the exact
+# install commands). The stable `pip install vllm` wheel pins
+# `transformers<5`, which breaks Gemma4 loading with
+# `ValidationError: model type 'gemma4' not recognized`.
 
 # LLM providers (install only what you use)
 ollama>=0.2
